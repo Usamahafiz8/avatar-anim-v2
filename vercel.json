@@ -1,0 +1,13 @@
+{
+  "buildCommand": "node fetch-assets.mjs",
+  "outputDirectory": ".",
+  "headers": [
+    {
+      "source": "/models/(.*)",
+      "headers": [
+        { "key": "Content-Type", "value": "model/gltf-binary" },
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    }
+  ]
+}

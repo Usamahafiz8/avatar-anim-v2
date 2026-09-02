@@ -1,0 +1,8 @@
+{
+  "name": "avatar-anim-v2",
+  "private": true,
+  "engines": { "node": "20.x" },
+  "scripts": {
+    "build": "node fetch-assets.mjs"
+  }
+}
