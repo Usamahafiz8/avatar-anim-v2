@@ -232,6 +232,8 @@
       <div class="custSection" id="custBeardSection">
         <label>Beard</label>
         <div class="swatchRow" id="custBeard"></div>
+        <label>Beard Color</label>
+        <div class="swatchRow" id="custBeardColor"></div>
       </div>
       <div class="custSection">
         <label>Glasses</label>
@@ -456,18 +458,42 @@ const key = new THREE.DirectionalLight(0xffffff, 1.6); key.position.set(1.4, 3, 
 let av = null;   // the current avatar: { root, mixer, actions, current }
 let modelKey = 'male';
 let tintHex = null;   // set by selfie personalisation; null = untinted
+// Bumped at the start of every buildAvatar() call. rebuildCharacter() can
+// fire again before a prior call's awaits (loadModel/loadClipLibrary) settle
+// — e.g. clicking a skin swatch then immediately switching body — and
+// without this guard BOTH calls proceed to scene.add() their own root, with
+// whichever resolves last winning the final `av` assignment regardless of
+// which one was actually the newer request. That raced exactly the reported
+// bug: picking Deep on Male then switching to Female could leave the Male
+// build's root (or its in-progress paint) racing the Female build's, so the
+// visible skin tone didn't reliably match the latest selection. A call whose
+// token no longer matches the latest bails out and cleans up its own root
+// instead of touching shared `scene`/`av` state.
+let buildGeneration = 0;
 
 // One shared state object: the selfie flow, the premade picker, and the
 // Customize popup all read/write this and rebuild from it, so there's a
 // single source of truth for "what does the character currently look like."
 const charState = {
-  bodyType: 'male', tint: null, hasGlasses: false, beardStyle: 'none',
+  bodyType: 'male', tint: null, hasGlasses: false, beardStyle: 'none', beardColor: null,
   eyeColor: null, lipColor: null, hairStyle: 'default', hairColor: null,
 };
+// Beard is the only trait restricted to one body (custBeardSection is
+// hidden outside 'male' — see syncCustomizeUI). Hiding the UI section isn't
+// enough on its own: the stale beardStyle stayed in charState and kept
+// rendering on the other body until the panel was reopened and Beard
+// touched again. Centralising the bodyType write here means every entry
+// point (Customize panel toggle, premade picks, selfie generation) clears
+// it the same way, instead of each call site needing its own reset logic.
+function setBodyType(next) {
+  charState.bodyType = next;
+  if (next !== 'male') { charState.beardStyle = 'none'; charState.beardColor = null; }
+}
 async function rebuildCharacter() {
   await buildAvatar(charState.bodyType, {
     tint: charState.tint, hasGlasses: charState.hasGlasses,
-    beardStyle: charState.beardStyle, eyeColor: charState.eyeColor, lipColor: charState.lipColor,
+    beardStyle: charState.beardStyle, beardColor: charState.beardColor,
+    eyeColor: charState.eyeColor, lipColor: charState.lipColor,
     hairStyle: charState.hairStyle, hairColor: charState.hairColor,
   });
 }
@@ -521,14 +547,6 @@ function buildGlasses() {
   g.name = 'glassesAccessory';
   return g;
 }
-// Three real beard SHAPES (not just one), since the body has no beard mesh
-// of its own to swap. All the same technique as glasses — simple primitives
-// parented to the Head bone.
-const BEARD_STYLES = {
-  stubble: { poly: [0.044, 10, 8, 0, Math.PI * 2, 0, Math.PI * 0.30], scale: [1, 0.55, 0.8], y: 0.006 },
-  goatee:  { poly: [0.030, 10, 8, 0, Math.PI * 2, 0, Math.PI * 0.42], scale: [0.72, 0.9, 0.85], y: -0.006 },
-  full:    { poly: [0.052, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.42], scale: [1, 0.7, 0.85], y: 0.0 },
-};
 // A hard-edged sphere slice reads as a solid plastic dome, not hair. Fixed
 // with an alphaMap that fades opacity to 0 at the rim: SphereGeometry's V
 // coordinate runs 0 (pole) toward 1 (opposite pole), and this dome only uses
@@ -540,11 +558,9 @@ const BEARD_STYLES = {
 // multiplier — NOT the canvas's own alpha channel. A gradient built from
 // rgba(...,alpha) is invisible to it; the fade has to be encoded as an
 // actual grayscale VALUE (white=opaque, black=transparent) on an opaque
-// canvas. (First attempt used varying canvas alpha and rendered as a
-// uniformly-opaque texture — confirmed by reading the material back:
-// alphaMap was correctly assigned, transparent:true was set, yet the edge
-// was still a hard cutoff, which only makes sense if the map's green
-// channel was constant.)
+// canvas. Used by the hair caps (buildHairCap) — the beard uses its own
+// beardHairMap below instead, since a beard needs uneven strand density,
+// not just an edge fade.
 const _featherMapCache = new Map();
 function featherAlphaMap(midStop = 0.5, key = midStop) {
   if (_featherMapCache.has(key)) return _featherMapCache.get(key);
@@ -559,18 +575,182 @@ function featherAlphaMap(midStop = 0.5, key = midStop) {
   _featherMapCache.set(key, tex);
   return tex;
 }
-function buildBeard(style = 'full') {
+// Beard SHAPES, built from a small stack of overlapping ellipsoids (scaled
+// sphere-slices) rather than one dome, so the volume actually follows the
+// jaw's curve instead of sitting as a single flat blob.
+//
+// Sized/positioned against MEASURED head-bone-local BIND-SPACE geometry, not
+// guessed — and not the naive worldToLocal() reading either, which gave
+// wrong numbers on this posed/skinned rig. Correct method: read the mesh's
+// skinIndex/skinWeight to find vertices weighted >=0.5 to the Head bone,
+// then map each through `mesh.bindMatrix` and `skeleton.boneInverses[Head]`
+// to land in the bone's own bind-pose local space — the same space these
+// accessories are parented into via headBone.add(...).
+//
+// Verified jaw/chin shape in that space: the jaw comes to a narrow point at
+// the chin, X in [-0.007, 0.007] at Y=-0.045 (the lowest point, i.e. the
+// chin tip), and widens going UP (not down) toward cheek height — X reaches
+// [-0.066, 0.066] by Y=+0.02. Forward Z-bulge is shallow at the chin
+// (~0.056) and deeper at cheek height (~0.12). In short: think of the jaw as
+// a narrow-bottom, wide-top fan, not a uniform-width band — a first version
+// of this ignored that taper and used a wide chin position, which put mass
+// into empty space beside the neck instead of on the actual jaw surface.
+const BEARD_STYLES = {
+  // Stubble: thin coverage hugging just the chin point and a light
+  // moustache — deliberately doesn't reach the cheeks.
+  stubble: {
+    parts: [
+      { pos: [0, -0.026, 0.062], scale: [0.020, 0.018, 0.014] },   // chin tip
+      { pos: [0.026, -0.006, 0.080], scale: [0.024, 0.028, 0.018], rotZ: -0.25 }, // right jaw, low
+      { pos: [-0.026, -0.006, 0.080], scale: [0.024, 0.028, 0.018], rotZ: 0.25 },// left jaw, low
+      { pos: [0, 0.016, 0.100], scale: [0.028, 0.011, 0.013] },    // light moustache
+    ],
+    density: 0.34, colorMul: 0.9,
+  },
+  // Goatee: chin + moustache only, jaw/cheeks bare.
+  goatee: {
+    parts: [
+      { pos: [0, -0.028, 0.064], scale: [0.030, 0.028, 0.020] },   // chin puff (bigger than stubble's, widened to overlap the jaw straps)
+      { pos: [0, 0.015, 0.101], scale: [0.030, 0.013, 0.015] },    // moustache
+      { pos: [0.014, -0.010, 0.078], scale: [0.013, 0.020, 0.015] }, // jaw-to-chin strap, right
+      { pos: [-0.014, -0.010, 0.078], scale: [0.013, 0.020, 0.015] },// jaw-to-chin strap, left
+    ],
+    density: 0.62, colorMul: 1,
+  },
+  // Full: the complaint was specifically "too small, doesn't cover the jaw"
+  // — this now follows the jaw's actual taper from the chin point up to
+  // near full cheek width/depth at the top, instead of one undersized blob.
+  full: {
+    parts: [
+      { pos: [0, -0.030, 0.062], scale: [0.036, 0.030, 0.024] },    // chin mass — widened in X so it overlaps the jaw pieces rather than leaving a bare sliver at the chin tip
+      { pos: [0.028, -0.012, 0.080], scale: [0.032, 0.034, 0.026], rotZ: -0.18 }, // right jaw, mid
+      { pos: [-0.028, -0.012, 0.080], scale: [0.032, 0.034, 0.026], rotZ: 0.18 },// left jaw, mid
+      { pos: [0.044, 0.006, 0.092], scale: [0.032, 0.036, 0.026], rotZ: -0.20 }, // right cheek, upper — closer in and less tilt than before so it merges with the jaw piece instead of flaring out as a separate "wing"
+      { pos: [-0.044, 0.006, 0.092], scale: [0.032, 0.036, 0.026], rotZ: 0.20 },// left cheek, upper
+      { pos: [0, 0.017, 0.102], scale: [0.034, 0.015, 0.017] },     // moustache
+    ],
+    density: 0.9, colorMul: 1,
+  },
+};
+// A hair-noise texture reads as actual facial hair; a flat fill reads as
+// painted-on plastic. This paints layered speckle + short angled strand
+// strokes (Canvas 2D only, no image assets) at a density set per style, then
+// feathers the whole map's edge to black so alphaMap fades it out at the UV
+// border the same way the old feathered dome did — but now the CENTER also
+// has broken, uneven coverage instead of being a solid disc.
+const _beardMapCache = new Map();
+function beardHairMap(density, key) {
+  if (_beardMapCache.has(key)) return _beardMapCache.get(key);
+  const n = 160;
+  const cv = document.createElement('canvas'); cv.width = n; cv.height = n;
+  const ctx = cv.getContext('2d');
+  // Solid dense base FIRST, scaled by density — a real beard (goatee/full)
+  // reads as near-opaque hair coverage with skin only showing through at
+  // sparse/thin styles, not a translucent haze. Drawing strand strokes over
+  // black at partial alpha (the old approach) meant even "full" left large
+  // gaps of near-0 alpha between strokes, so skin tone showed through
+  // everywhere and the whole beard read as washed-out/light — exactly the
+  // reported bug. Filling first to a density-proportional base alpha, THEN
+  // adding strand detail on top of an already-solid base, fixes that.
+  const baseAlpha = Math.round(255 * THREE.MathUtils.clamp(density * 0.95 + 0.05, 0.08, 0.99));
+  ctx.fillStyle = `rgba(0,0,0,${baseAlpha / 255})`;
+  ctx.fillRect(0, 0, n, n);
+  // seeded PRNG so the pattern is stable across rebuilds within a session
+  let seed = 1337;
+  const rand = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+  ctx.strokeStyle = '#fff';
+  ctx.lineCap = 'round';
+  // Strand layers now ADD texture/depth on top of the solid base rather
+  // than being the only source of coverage — darker/lighter strand streaks
+  // break up the flat fill so it still reads as hair, not a painted patch.
+  const drawStrands = (count, lenMin, lenMax, alphaMin, alphaMax, widthMin, widthMax) => {
+    for (let i = 0; i < count; i++) {
+      const x = rand() * n, y = rand() * n;
+      const len = lenMin + rand() * (lenMax - lenMin);
+      const ang = (Math.PI / 2) + (rand() - 0.5) * 1.1;   // mostly downward, some splay
+      const x2 = x + Math.cos(ang) * len, y2 = y + Math.sin(ang) * len;
+      ctx.globalAlpha = alphaMin + rand() * (alphaMax - alphaMin);
+      ctx.lineWidth = widthMin + rand() * (widthMax - widthMin);
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x2, y2); ctx.stroke();
+    }
+  };
+  drawStrands(Math.round(density * 3400), 2, 5, 0.30, 0.55, 0.8, 1.4);   // fill-in strand detail
+  drawStrands(Math.round(density * 900), 5, 9, 0.15, 0.30, 0.5, 0.9);   // longer accent strands
+  ctx.globalAlpha = 1;
+  // Feather only a narrow band at the very rim (opaque core out to 0.62 of
+  // the radius) — pieces are positioned to OVERLAP each other, so keeping
+  // most of each piece's surface solidly opaque means the overlap itself
+  // hides the seam, instead of two adjacent pieces both fading toward
+  // transparent right where they meet.
+  const feather = ctx.createRadialGradient(n/2, n/2, n*0.62, n/2, n/2, n*0.86);
+  feather.addColorStop(0, 'rgba(255,255,255,1)');
+  feather.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.globalCompositeOperation = 'destination-in';
+  ctx.fillStyle = feather;
+  ctx.fillRect(0, 0, n, n);
+  ctx.globalCompositeOperation = 'source-over';
+  const tex = new THREE.CanvasTexture(cv);
+  _beardMapCache.set(key, tex);
+  return tex;
+}
+function buildBeard(style = 'full', hex) {
   const cfg = BEARD_STYLES[style] ?? BEARD_STYLES.full;
+  const group = new THREE.Group();
+  group.name = 'beardAccessory';
+  // Darker, more saturated base colour — 0x2a1f18 read as a light warm
+  // brown once the alpha coverage above was thin; a real beard (as in the
+  // reference photos) is a much darker near-black brown, not a milk-chocolate
+  // tone, regardless of hair colour, because dense hair reads darker than a
+  // single strand's own colour. A detected/chosen beardColor still gets
+  // pulled most of the way toward that same near-black anchor (lerp, not a
+  // straight swap) so e.g. a blonde swatch shifts the hue without undoing
+  // the darkening this whole block exists for.
+  const tinted = hex
+    ? new THREE.Color(0x050403).lerp(new THREE.Color(hex), 0.35)
+    : new THREE.Color(0x050403);
+  //
+  // The colour alone wasn't enough, though: this scene's lights are bright
+  // (HemisphereLight intensity 2.2 + a 1.6 DirectionalLight), and a plain
+  // MeshStandardMaterial's diffuse response still reflects a lot of that
+  // ambient light even at a near-black base colour — confirmed by sampling
+  // the actual alphaMap canvas (correctly ~82-93% opaque, near-black RGB)
+  // against the rendered pixels, which came out a washed-out medium brown.
+  // A small emissive term is largely lighting-INDEPENDENT (unlike the
+  // diffuse `color`, which scales with incoming light), so it anchors a
+  // dark floor the material can't be lit past — keeping the beard reading
+  // dark under this scene's specific lighting without switching away from
+  // the same MeshStandardMaterial used for hair/glasses elsewhere.
   const mat = new THREE.MeshStandardMaterial({
-    color: 0x2a1f18, roughness: 0.95, transparent: true, alphaMap: featherAlphaMap(0.5, 'beard'),
+    color: tinted.multiplyScalar(cfg.colorMul),
+    emissive: new THREE.Color(0x000000),
+    roughness: 1, metalness: 0,
+    transparent: true, alphaMap: beardHairMap(cfg.density, 'beard-' + style),
   });
-  const geo = new THREE.SphereGeometry(...cfg.poly);
-  const beard = new THREE.Mesh(geo, mat);
-  beard.rotation.x = Math.PI;   // dome opens downward, hugging the jaw/chin
-  beard.scale.set(...cfg.scale);
-  beard.position.set(0, cfg.y, 0.095);
-  beard.name = 'beardAccessory';
-  return beard;
+  mat.onBeforeCompile = shader => {
+    // Push the diffuse contribution down further than `color` alone can:
+    // MeshStandardMaterial's lit output is still color * (ambient+diffuse
+    // light), and this scene's lights are bright enough that even a
+    // near-black color reflects a visibly lighter result than a real
+    // beard's near-total light absorption. Clamping the final RGB with a
+    // power curve (darkens midtones without crushing pure black or fully
+    // flattening the strand highlight variation from the alphaMap-driven
+    // texture) gets close to the reference photos' solid dark coverage
+    // without a separate unlit render pass just for this one accessory.
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <dithering_fragment>',
+      'gl_FragColor.rgb = pow(gl_FragColor.rgb, vec3(1.6));\n#include <dithering_fragment>'
+    );
+  };
+  const geo = new THREE.SphereGeometry(1, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.5);
+  for (const part of cfg.parts) {
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.rotation.x = Math.PI;               // dome opens downward, hugging the jaw/chin
+    if (part.rotZ) mesh.rotation.z += part.rotZ;
+    mesh.scale.set(...part.scale);
+    mesh.position.set(...part.pos);
+    group.add(mesh);
+  }
+  return group;
 }
 
 // Real hairSTYLE (shape), on top of the existing hair COLOUR-via-texture-
@@ -674,11 +854,13 @@ function paintFace(root, { eyeColor, lipColor }, bodyKey = 'male') {
 }
 
 async function buildAvatar(key, opts = {}) {
-  const { tint, hasGlasses, beardStyle, eyeColor, lipColor, hairStyle, hairColor } = opts || {};
+  const { tint, hasGlasses, beardStyle, beardColor, eyeColor, lipColor, hairStyle, hairColor } = opts || {};
+  const myGeneration = ++buildGeneration;
   $('loadingTag').classList.add('show');
   try {
     const base = await loadModel(key);
     const clips = await loadClipLibrary();
+    if (myGeneration !== buildGeneration) return;   // superseded while awaiting
     captureBind(base.scene);
     const pointClip = buildPointClip();
 
@@ -701,10 +883,16 @@ async function buildAvatar(key, opts = {}) {
       headBone.add(glasses);
     }
     if (headBone && beardStyle && beardStyle !== 'none') {
-      headBone.add(buildBeard(beardStyle));
+      headBone.add(buildBeard(beardStyle, beardColor));
     }
-    if (headBone && hairStyle && hairStyle !== 'default') {
-      headBone.add(buildHairCap(hairStyle, hairColor ? new THREE.Color(hairColor).getHex() : undefined));
+    // A chosen hair COLOUR needs actual hair geometry to show up on — the
+    // baked hair can't be recoloured in place (see buildHairCap's notes).
+    // Defaulting to 'crop' here means picking a colour swatch always shows a
+    // visible result immediately, instead of silently doing nothing while
+    // Hair Style is still "Default" (the bug this replaces).
+    const effectiveHairStyle = hairStyle && hairStyle !== 'default' ? hairStyle : (hairColor ? 'crop' : null);
+    if (headBone && effectiveHairStyle) {
+      headBone.add(buildHairCap(effectiveHairStyle, hairColor ? new THREE.Color(hairColor).getHex() : undefined));
     }
 
     const mixer = new THREE.AnimationMixer(root);
@@ -900,6 +1088,8 @@ function buildCustomizeUI() {
     async i => { charState.lipColor = i.hex; await rebuildCharacter(); });
   renderSwatchRow('custBeard', BEARD_PRESETS, i => charState.beardStyle === i.key,
     async i => { charState.beardStyle = i.key; await rebuildCharacter(); }, 'shape');
+  renderSwatchRow('custBeardColor', HAIR_COLOR_PRESETS, i => charState.beardColor === i.hex,
+    async i => { charState.beardColor = i.hex; await rebuildCharacter(); });
   renderSwatchRow('custGlasses', GLASSES_PRESETS, i => charState.hasGlasses === i.key,
     async i => { charState.hasGlasses = i.key; await rebuildCharacter(); }, 'shape');
   syncCustomizeUI();
@@ -925,6 +1115,7 @@ buildCustomizeUI._rerenderActive = () => {
   mark('custEyes', EYE_PRESETS, 'eyeColor');
   mark('custLips', LIP_PRESETS, 'lipColor');
   mark('custBeard', BEARD_PRESETS, 'beardStyle');
+  mark('custBeardColor', HAIR_COLOR_PRESETS, 'beardColor');
   mark('custGlasses', GLASSES_PRESETS, 'hasGlasses');
   mark('custHairStyle', HAIR_STYLE_PRESETS, 'hairStyle');
   mark('custHairColor', HAIR_COLOR_PRESETS, 'hairColor');
@@ -952,7 +1143,7 @@ $('customizeClose').onclick = closeCustomize;
 $('customizeBackdrop').onclick = closeCustomize;
 $('custBodySeg').onclick = async e => {
   const b = e.target.closest('button'); if (!b) return;
-  charState.bodyType = b.dataset.b;
+  setBodyType(b.dataset.b);
   await rebuildCharacter();
   syncCustomizeUI();
 };
@@ -977,9 +1168,10 @@ function buildPremadePicks() {
     el.onclick = async () => {
       [...wrap.children].forEach(c => c.removeAttribute('data-active'));
       el.dataset.active = 'true';
-      charState.bodyType = p.key; charState.tint = p.tint;
-      charState.hasGlasses = false; charState.beardStyle = 'none';
+      setBodyType(p.key); charState.tint = p.tint;
+      charState.hasGlasses = false; charState.beardStyle = 'none'; charState.beardColor = null;
       charState.eyeColor = null; charState.lipColor = null;
+      charState.hairStyle = 'default'; charState.hairColor = null;
       await rebuildCharacter();
       syncCustomizeUI();
     };
@@ -993,17 +1185,34 @@ $('usePremadeLink').onclick = () => {
 };
 
 // ── selfie upload + validation (brief item 1) ──────────────────────────────
-// Colour-tint personalisation, not a real generative avatar. A real
-// selfie-to-avatar vendor (Avaturn) was tried and confirmed COMPATIBLE with
-// this rig/clip library (same bone names, valid bind pose, animations
-// retarget correctly) — but their free tier forces the end user through a
-// Google/email sign-in before creating an avatar, and a real project
-// subdomain (no sign-in) is $800/month, which isn't appropriate for a
-// prototype. Reverted to this tint-only approach at the user's explicit
-// choice (2026-09-02) rather than accept either the paid tier or the
-// forced sign-in step. If a budget or a different vendor becomes available,
-// `buildAvatar(url, null)` already accepts a raw GLB URL from any source —
-// swapping the vendor back in is a small, contained change, not a rewrite.
+// Trait-matching personalisation (colour + accessory + hair/beard shape),
+// not a full generative 3D avatar — the base body mesh itself is always one
+// of the two RPM bodies, only its traits change. A real selfie-to-3D-mesh
+// vendor (Avaturn) was tried and confirmed COMPATIBLE with this rig/clip
+// library (same bone names, valid bind pose, animations retarget correctly)
+// — but their free tier forces the end user through a Google/email sign-in
+// before creating an avatar, and a real project subdomain (no sign-in) is
+// $800/month, which isn't appropriate for a prototype. Reverted to trait-
+// matching at the user's explicit choice (2026-09-02) rather than accept
+// either the paid tier or the forced sign-in step. If a budget or a
+// different vendor becomes available, `buildAvatar(url, null)` already
+// accepts a raw GLB URL from any source — swapping the vendor back in is a
+// small, contained change, not a rewrite.
+//
+// Trait matching itself has two tiers, both feeding the same `charState`:
+//  1. Local, offline, always on: MediaPipe FaceLandmarker (landmarks/pose/
+//     multi-face validation) + Canvas pixel sampling (skin tone, glasses,
+//     facial-hair presence) + face-api.js AgeGenderNet (body type). Zero
+//     config, zero network dependency beyond the CDN model files.
+//  2. Gemini vision API, via analyzeWithGemini() below, progressive
+//     enhancement only: adds hair/beard STYLE (buzz/crop/swept,
+//     stubble/goatee/full) and eye/hair/beard COLOUR, which pixel sampling
+//     alone can't reliably read. Proxied through a tiny server function
+//     (api/analyze-face.js et al) so the API key never reaches this client
+//     code. If GEMINI_API_KEY isn't configured, or the call fails for any
+//     reason, analyzeWithGemini() returns null and analyseSelfie() falls
+//     back to tier 1 only — same "detection is a bonus, never a blocker"
+//     principle as the gender classifier below.
 //
 // Four checks, each with its own message, each letting the user try another
 // photo. Heuristics tuned against synthetic test images, not a production
@@ -1123,6 +1332,58 @@ async function detectBodyType(img) {
   }
 }
 
+// Gemini returns freeform hex (its own best-guess colour), but the Customize
+// panel only knows how to highlight one of its fixed swatches — snapping to
+// the nearest preset keeps "what the AI picked" and "what you can tweak
+// afterwards" visually the same set of options, instead of a colour with no
+// matching swatch anywhere in the panel.
+function nearestPreset(hex, presets) {
+  if (!hex) return null;
+  const c = new THREE.Color(hex);
+  let best = null, bestDist = Infinity;
+  for (const p of presets) {
+    const pc = new THREE.Color(p.hex);
+    const d = (c.r - pc.r) ** 2 + (c.g - pc.g) ** 2 + (c.b - pc.b) ** 2;
+    if (d < bestDist) { bestDist = d; best = p.hex; }
+  }
+  return best;
+}
+
+function imageToBase64Jpeg(img, maxSide = 640) {
+  const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+  const w = Math.max(1, Math.round(img.naturalWidth * scale));
+  const h = Math.max(1, Math.round(img.naturalHeight * scale));
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  cv.getContext('2d').drawImage(img, 0, 0, w, h);
+  const dataUrl = cv.toDataURL('image/jpeg', 0.85);
+  return dataUrl.slice(dataUrl.indexOf(',') + 1);
+}
+
+// Richer trait read (hair/beard STYLE, hair/beard/eye COLOUR) via a server
+// proxy to Gemini's vision API — see analyze-face-core.mjs for the prompt and
+// api/analyze-face.js / netlify/functions/analyze-face.js / serve.mjs for the
+// three equivalent server-side entry points, none of which expose the API
+// key to this client code. This is a progressive enhancement layered on top
+// of the local MediaPipe/Canvas pipeline below, never a replacement for it:
+// if there's no key configured, the request fails, or the quota's used up,
+// this just returns null and the caller keeps using the local heuristics —
+// same "never a dead end" principle as the gender-classifier fallback above.
+async function analyzeWithGemini(img) {
+  try {
+    const image = imageToBase64Jpeg(img);
+    const res = await fetch('/api/analyze-face', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ image, mimeType: 'image/jpeg' }),
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.warn('[gemini] AI trait detection unavailable, using local detection only:', err);
+    return null;
+  }
+}
+
 async function analyseSelfie(img) {
   const lm = await getLandmarker();
   const res = lm.detect(img);
@@ -1151,11 +1412,55 @@ async function analyseSelfie(img) {
   if (faceSharpness(ctx, nose[0], nose[1], faceHalf) < 8)
     return { error: 'This photo looks blurry. Please use a sharper image.' };
 
+  // Kicked off here (past every fast-fail validation check above, so a
+  // rejected photo never wastes a network call/API quota) and awaited only
+  // once the local pipeline's own result is ready — analyzeWithGemini(img)
+  // needs nothing from `local`, so running it concurrently with the
+  // remaining local work (detectBodyType's model inference in particular)
+  // instead of after it cuts perceived latency by roughly min(local, ai)
+  // instead of paying both in sequence.
+  const aiPromise = analyzeWithGemini(img);
+
   const skin = medianColour(ctx, [at(50), at(280), at(101), at(330), at(9)], Math.max(3, W * 0.012));
   const hasGlasses = detectGlasses(ctx, at, faceHalf);
   const hasFacialHair = detectFacialHair(ctx, at, skin);
   const body = await detectBodyType(img);
-  return { skin, hasGlasses, hasFacialHair, bodyType: body?.bodyType ?? 'male', bodyConfidence: body?.confidence };
+  const local = { skin, hasGlasses, hasFacialHair, bodyType: body?.bodyType ?? 'male', bodyConfidence: body?.confidence };
+
+  // Gemini adds the traits the local pipeline can't reliably get from pixel
+  // sampling alone (hair/beard STYLE, plus eye/hair/beard colour) — merged
+  // field-by-field on top of `local` rather than replacing it, so a partial
+  // or missing Gemini response (no key configured, one field it left out)
+  // still leaves every local trait intact.
+  const ai = await aiPromise;
+  // Always return the full shape (both branches), so every caller can read
+  // eyeColor/hairStyle/hairColor/beardStyle/beardColor directly with no
+  // extra `?? default` of its own — only this one place needs to know that
+  // the local-only path simply has no opinion on those fields.
+  if (!ai) return { ...local, aiPowered: false, eyeColor: null, hairStyle: 'default', hairColor: null, beardStyle: local.hasFacialHair ? 'full' : 'none', beardColor: null };
+
+  // The merged hasFacialHair and beardStyle must agree on the SAME value —
+  // computed once here (as `mergedHasFacialHair`, distinct from the local-
+  // only `hasFacialHair` above) rather than each re-deriving it
+  // independently, since an object literal can't reference a sibling field
+  // while building it. Gemini's beardStyle is schema-constrained to the
+  // four known keys, but this still guards against an unexpected/missing
+  // value falling back to local's own read rather than silently
+  // disagreeing with the merged hasFacialHair.
+  const mergedHasFacialHair = ai.beardStyle ? ai.beardStyle !== 'none' : local.hasFacialHair;
+  return {
+    ...local,
+    aiPowered: true,
+    bodyType: ai.bodyType ?? local.bodyType,
+    skin: ai.skinToneHex ? new THREE.Color(ai.skinToneHex) : local.skin,
+    hasGlasses: typeof ai.hasGlasses === 'boolean' ? ai.hasGlasses : local.hasGlasses,
+    hasFacialHair: mergedHasFacialHair,
+    eyeColor: nearestPreset(ai.eyeColorHex, EYE_PRESETS),
+    hairStyle: HAIR_STYLE_PRESETS.some(p => p.key === ai.hairStyle) ? ai.hairStyle : 'default',
+    hairColor: nearestPreset(ai.hairColorHex, HAIR_COLOR_PRESETS),
+    beardStyle: BEARD_PRESETS.some(p => p.key === ai.beardStyle) ? ai.beardStyle : (mergedHasFacialHair ? 'full' : 'none'),
+    beardColor: nearestPreset(ai.beardColorHex, HAIR_COLOR_PRESETS),
+  };
 }
 
 let pendingImg = null;
@@ -1179,12 +1484,28 @@ $('selfie').onchange = async e => {
       msg.textContent = out.error;
       return;
     }
-    pendingImg = { skin: out.skin, hasGlasses: out.hasGlasses, hasFacialHair: out.hasFacialHair, bodyType: out.bodyType };
+    pendingImg = {
+      skin: out.skin, hasGlasses: out.hasGlasses, hasFacialHair: out.hasFacialHair, bodyType: out.bodyType,
+      eyeColor: out.eyeColor, hairStyle: out.hairStyle, hairColor: out.hairColor,
+      beardStyle: out.beardStyle, beardColor: out.beardColor,
+    };
     msg.className = 'msg show ok';
     const traitBits = [`${out.bodyType} body`];
     if (out.hasGlasses) traitBits.push('glasses');
-    if (out.hasFacialHair) traitBits.push('facial hair');
-    msg.textContent = `Looks good ✓ Click Generate Avatar. Detected: ${traitBits.join(', ')}.`;
+    if (out.hasFacialHair) traitBits.push(out.beardStyle && out.beardStyle !== 'full' ? `${out.beardStyle} facial hair` : 'facial hair');
+    // Only claim "AI match ready" when Gemini actually contributed a trait
+    // beyond what the local pipeline already finds on its own (glasses/
+    // facial-hair presence/skin/body type) — aiPowered alone can be true
+    // with every AI-specific field still empty (e.g. a bald/hairless photo),
+    // and showing the AI prefix with no visible extra detail reads as a
+    // false claim of richer detection than what's actually in the list.
+    let aiContributed = false;
+    if (out.eyeColor) { traitBits.push('eye colour'); aiContributed = true; }
+    if (out.hairStyle && out.hairStyle !== 'default') { traitBits.push(`${out.hairStyle} hair`); aiContributed = true; }
+    if (out.hairColor) { traitBits.push('hair colour'); aiContributed = true; }
+    if (out.hasFacialHair && out.beardColor) { traitBits.push('beard colour'); aiContributed = true; }
+    const prefix = aiContributed ? 'Looks good ✓ AI match ready.' : 'Looks good ✓';
+    msg.textContent = `${prefix} Click Generate Avatar. Detected: ${traitBits.join(', ')}.`;
     $('generateBtn').disabled = false;
   } catch (err) {
     msg.className = 'msg show error';
@@ -1198,10 +1519,24 @@ $('selfie').onchange = async e => {
 async function generateFromSelfie(bodyType) {
   const msg = $('uploadMsg');
   try {
-    charState.bodyType = bodyType;
+    setBodyType(bodyType);
     charState.tint = '#' + pendingImg.skin.getHexString();
     charState.hasGlasses = !!pendingImg.hasGlasses;
-    charState.beardStyle = pendingImg.hasFacialHair ? 'full' : 'none';
+    // hasFacialHair was detected against the uploaded photo, which only
+    // means something if the user is confirming that SAME detected gender.
+    // setBodyType() above already cleared beardStyle/beardColor if the body
+    // isn't 'male' — trusting charState.bodyType here (rather than re-testing
+    // the raw `bodyType` param again) means this only has ONE place encoding
+    // "beard requires male", the same rule setBodyType itself just applied.
+    // pendingImg.beardStyle is never 'none' when hasFacialHair is true —
+    // analyseSelfie() guarantees the two always agree (see its own notes) —
+    // so wantsBeard here only needs to gate on body type + presence.
+    const wantsBeard = charState.bodyType === 'male' && pendingImg.hasFacialHair;
+    charState.beardStyle = wantsBeard ? pendingImg.beardStyle : 'none';
+    charState.beardColor = wantsBeard ? pendingImg.beardColor : null;
+    charState.eyeColor = pendingImg.eyeColor;
+    charState.hairStyle = pendingImg.hairStyle;
+    charState.hairColor = pendingImg.hairColor;
     await rebuildCharacter();
     syncCustomizeUI();
     msg.className = 'msg show ok';
@@ -1237,7 +1572,8 @@ try { await rebuildCharacter(); buildCustomizeUI(); } catch (e) { showErr(e); }
 window.__demo = { THREE, play, resetToIdle, buildAvatar, applyTint, textureAverage,
                    getLandmarker, averageBrightness, faceSharpness, medianColour,
                    detectGlasses, detectFacialHair, buildGlasses, buildBeard, buildHairCap, paintFace,
-                   detectBodyType, ensureFaceApi, analyseSelfie, rebuildCharacter, charState,
+                   detectBodyType, ensureFaceApi, analyseSelfie, analyzeWithGemini, nearestPreset,
+                   rebuildCharacter, charState,
                    get av(){ return av; }, get bindQ(){ return _bindQ; } };
 </script>
 </body>

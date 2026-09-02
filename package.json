@@ -3,6 +3,7 @@
   "private": true,
   "engines": { "node": "20.x" },
   "scripts": {
-    "build": "node fetch-assets.mjs"
+    "build": "node fetch-assets.mjs",
+    "serve": "node serve.mjs"
   }
 }

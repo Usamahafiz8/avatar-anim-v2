@@ -16,3 +16,11 @@
   [headers.values]
     Content-Type = "model/gltf-binary"
     Cache-Control = "public, max-age=31536000, immutable"
+
+# So the client can call the same /api/analyze-face path on both Netlify and
+# Vercel (which auto-routes api/analyze-face.js there natively) without
+# branching per deploy target.
+[[redirects]]
+  from = "/api/analyze-face"
+  to = "/.netlify/functions/analyze-face"
+  status = 200
