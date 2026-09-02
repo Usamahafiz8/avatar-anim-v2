@@ -6,28 +6,42 @@
 <title>Street Blackjack — Avatar Demo</title>
 <style>
   :root {
-    --bg: #0b1410; --panel: #0f1c15; --line: rgba(255,255,255,.10);
-    --lime: #c2f53f; --text: #eaf6ea; --muted: #8fa898; --warn: #ffb84d; --bad: #ff6b6b; --good: #59d98a;
+    --bg-1: #0d1a12; --bg-2: #060d08;
+    --panel: #101f16; --panel-2: #0c1911; --line: rgba(255,255,255,.09); --line-strong: rgba(255,255,255,.16);
+    --lime: #c2f53f; --lime-dim: #7a9a2c; --gold: #d9b25c;
+    --text: #eef7ee; --muted: #85a08f; --warn: #ffb84d; --bad: #ff6b6b; --good: #59d98a;
+    --shadow: 0 10px 28px rgba(0,0,0,.35);
   }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; color: var(--text);
     font: 15px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
   body { min-height: 100vh; display: flex; flex-direction: column; align-items: center;
-    padding: 24px 16px 48px; }
+    padding: 26px 16px 48px;
+    background: radial-gradient(ellipse 120% 40% at 50% 0%, #17301f, var(--bg-1) 55%, var(--bg-2)) no-repeat; }
 
-  h1 { font-size: 18px; font-weight: 800; letter-spacing: .02em; margin: 0 0 4px; text-align: center; }
-  .sub { color: var(--muted); font-size: 12.5px; text-align: center; margin: 0 0 22px; max-width: 380px; }
+  .brand { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 3px; }
+  .brand .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--lime);
+    box-shadow: 0 0 10px 1px rgba(194,245,63,.7); }
+  h1 { font-size: 19px; font-weight: 800; letter-spacing: .01em; margin: 0; text-align: center; }
+  .sub { color: var(--muted); font-size: 12px; text-align: center; margin: 6px 0 22px; max-width: 340px; }
 
-  .card { width: 100%; max-width: 400px; background: var(--panel); border: 1px solid var(--line);
-    border-radius: 16px; padding: 18px; margin-bottom: 14px; }
-  .card h2 { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
-    color: var(--muted); margin: 0 0 12px; }
+  .card { width: 100%; max-width: 400px;
+    background: linear-gradient(180deg, var(--panel), var(--panel-2));
+    border: 1px solid var(--line); box-shadow: var(--shadow);
+    border-radius: 18px; padding: 18px; margin-bottom: 14px; }
+  .card h2 { font-size: 11px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase;
+    color: var(--gold); margin: 0 0 13px; display: flex; align-items: center; gap: 7px; }
+  .card h2::before { content: ''; width: 3px; height: 12px; border-radius: 2px; background: var(--gold); }
 
-  .btn { display: block; width: 100%; padding: 13px; border-radius: 12px; font: inherit; font-size: 14px;
-    font-weight: 800; cursor: pointer; border: 1px solid var(--line); text-align: center; }
-  .btn.primary { background: var(--lime); color: #10240a; border: none; }
-  .btn.primary:disabled { background: rgba(194,245,63,.25); color: rgba(16,36,10,.5); cursor: not-allowed; }
-  .btn.ghost { background: rgba(255,255,255,.05); color: var(--text); }
+  .btn { display: block; width: 100%; padding: 13px; border-radius: 13px; font: inherit; font-size: 14px;
+    font-weight: 800; cursor: pointer; border: 1px solid var(--line); text-align: center;
+    transition: transform .08s ease; }
+  .btn:active { transform: scale(.98); }
+  .btn.primary { background: linear-gradient(180deg, #d4ff5e, var(--lime)); color: #10240a; border: none;
+    box-shadow: 0 4px 14px rgba(194,245,63,.28); }
+  .btn.primary:disabled { background: rgba(194,245,63,.18); color: rgba(238,247,238,.35);
+    box-shadow: none; cursor: not-allowed; }
+  .btn.ghost { background: rgba(255,255,255,.05); color: var(--text); border-color: var(--line-strong); }
   .btn + .btn { margin-top: 8px; }
   input[type=file] { display: none; }
 
@@ -38,45 +52,94 @@
   .msg.ok { background: rgba(89,217,138,.12); color: var(--good); border: 1px solid rgba(89,217,138,.3); }
   .msg a { color: var(--lime); font-weight: 700; }
 
-  .previewWrap { width: 100%; max-width: 400px; }
-  #previewBox { position: relative; width: 100%; aspect-ratio: 3/4; border-radius: 16px; overflow: hidden;
-    background: radial-gradient(ellipse 70% 60% at 50% 38%, #1f5f3a, #0a1f14);
-    border: 1px solid var(--line); margin-bottom: 14px; }
+  .previewWrap { width: 100%; max-width: 400px; position: relative; }
+  #previewBox { position: relative; width: 100%; aspect-ratio: 3/4; border-radius: 20px; overflow: hidden;
+    background: radial-gradient(ellipse 75% 65% at 50% 34%, #245c39 0%, #123322 48%, #081c12 82%, #04120b 100%);
+    border: 1px solid var(--line-strong); margin-bottom: 14px; box-shadow: var(--shadow),
+    inset 0 0 60px rgba(0,0,0,.35); }
   #gl { width: 100%; height: 100%; display: block; }
   #loadingTag { position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
-    color: var(--muted); font-size: 12.5px; background: rgba(10,20,14,.6); }
+    color: var(--muted); font-size: 12.5px; background: rgba(6,13,8,.72); backdrop-filter: blur(2px); }
   #loadingTag.show { display: flex; }
+  #customizeBtn { position: absolute; top: 12px; right: 12px; width: auto; display: flex; align-items: center;
+    gap: 6px; padding: 9px 14px; border-radius: 999px; font-size: 12.5px;
+    background: rgba(6,14,9,.72); border: 1px solid var(--line-strong); backdrop-filter: blur(6px); }
 
   .row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; }
-  .act { aspect-ratio: 1; border-radius: 12px; border: 1px solid var(--line); background: rgba(255,255,255,.05);
+  .act { aspect-ratio: 1; border-radius: 13px; border: 1px solid var(--line); background: rgba(255,255,255,.04);
     color: var(--text); font: inherit; font-size: 10px; font-weight: 700; letter-spacing: .01em;
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-    cursor: pointer; padding: 4px; }
-  .act .ic { font-size: 19px; line-height: 1; }
-  .act:active { background: rgba(194,245,63,.18); border-color: var(--lime); }
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+    cursor: pointer; padding: 4px; transition: transform .08s ease, border-color .08s ease, background .08s ease; }
+  .act .ic { font-size: 20px; line-height: 1; }
+  .act:active { transform: scale(.94); background: rgba(194,245,63,.16); border-color: var(--lime); }
 
-  .more { margin-top: 10px; }
-  .more summary { cursor: pointer; font-size: 11px; color: var(--muted); font-weight: 700;
-    letter-spacing: .04em; text-transform: uppercase; }
-  .more .row { grid-template-columns: repeat(4, 1fr); margin-top: 8px; }
+  .more { margin-top: 12px; }
+  .more summary { cursor: pointer; font-size: 10.5px; color: var(--muted); font-weight: 800;
+    letter-spacing: .06em; text-transform: uppercase; list-style: none; }
+  .more summary::-webkit-details-marker { display: none; }
+  .more summary::before { content: '▸ '; color: var(--gold); }
+  .more[open] summary::before { content: '▾ '; }
+  .more .row { grid-template-columns: repeat(4, 1fr); margin-top: 10px; }
 
-  .picks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-  .pick { aspect-ratio: 1; border-radius: 12px; cursor: pointer; border: 2px solid transparent;
+  .picks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
+  .pick { aspect-ratio: 1; border-radius: 13px; cursor: pointer; border: 2px solid transparent;
     background: radial-gradient(ellipse at 50% 32%, #245c3a, #0c2417);
-    display: grid; place-items: end center; padding-bottom: 6px; }
+    display: grid; place-items: end center; padding-bottom: 6px; box-shadow: var(--shadow);
+    transition: border-color .1s ease, transform .1s ease; }
+  .pick:active { transform: scale(.97); }
   .pick span { font-size: 9px; font-weight: 800; letter-spacing: .03em; color: #eaf6ea;
     background: rgba(0,0,0,.5); border-radius: 5px; padding: 2px 6px; }
-  .pick[data-active="true"] { border-color: var(--lime); }
+  .pick[data-active="true"] { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold), var(--shadow); }
 
-  .link { color: var(--lime); font-size: 12px; font-weight: 700; text-align: center; display: block;
-    margin-top: 12px; cursor: pointer; background: none; border: none; font: inherit; }
+  .link { color: var(--lime); font-size: 12.5px; font-weight: 700; text-align: center; display: block;
+    margin-top: 13px; cursor: pointer; background: none; border: none; font: inherit; }
 
-  .seg { display: flex; gap: 6px; margin-top: 10px; }
+  .seg { display: flex; gap: 6px; margin-top: 10px; background: rgba(0,0,0,.2); padding: 4px; border-radius: 13px; }
   .seg[hidden] { display: none; }
-  .seg button { flex: 1; padding: 8px; border-radius: 10px; border: 1px solid var(--line);
-    background: rgba(255,255,255,.05); color: var(--muted); font: inherit; font-size: 11.5px;
-    font-weight: 700; cursor: pointer; }
-  .seg button[aria-pressed="true"] { background: var(--lime); color: #10240a; border-color: var(--lime); }
+  .seg button { flex: 1; padding: 9px; border-radius: 10px; border: none;
+    background: transparent; color: var(--muted); font: inherit; font-size: 11.5px;
+    font-weight: 700; cursor: pointer; transition: background .1s ease, color .1s ease; }
+  .seg button[aria-pressed="true"] { background: var(--lime); color: #10240a; }
+
+  #customizeModal { position: fixed; inset: 0; z-index: 55; }
+  #customizeModal[hidden] { display: none; }
+  #customizeBackdrop { position: absolute; inset: 0; background: rgba(2,6,3,.78); backdrop-filter: blur(2px); }
+  #customizePanel { position: absolute; left: 0; right: 0; bottom: 0; max-height: 85vh;
+    background: linear-gradient(180deg, #0e1c13, #081209); border: 1px solid var(--line-strong); border-bottom: none;
+    border-radius: 22px 22px 0 0; display: flex; flex-direction: column;
+    box-shadow: 0 -12px 40px rgba(0,0,0,.5); }
+  #customizePanel::before { content: ''; width: 38px; height: 4px; border-radius: 3px;
+    background: var(--line-strong); margin: 10px auto 0; flex: 0 0 auto; }
+  #customizePanel header { display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 20px 14px; border-bottom: 1px solid var(--line); flex: 0 0 auto; }
+  #customizePanel h3 { margin: 0; font-size: 16px; font-weight: 800; }
+  #customizeClose { padding: 8px 16px; border-radius: 999px; cursor: pointer; font: inherit;
+    font-weight: 800; background: linear-gradient(180deg, #d4ff5e, var(--lime)); color: #10240a;
+    border: none; font-size: 12px; }
+  .custBody { overflow-y: auto; padding: 6px 20px calc(24px + env(safe-area-inset-bottom)); }
+  .custSection { padding: 16px 0; border-bottom: 1px solid var(--line); }
+  .custSection:last-of-type { border-bottom: none; }
+  .custSection label { display: flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 800;
+    letter-spacing: .08em; text-transform: uppercase; color: var(--gold); margin-bottom: 11px; }
+  .swatchRow { display: flex; flex-wrap: wrap; gap: 10px; }
+  .swatch-btn { width: 40px; height: 40px; border-radius: 50%; border: 2px solid rgba(255,255,255,.14);
+    cursor: pointer; padding: 0; position: relative; box-shadow: 0 2px 6px rgba(0,0,0,.35);
+    transition: transform .08s ease, border-color .08s ease; }
+  .swatch-btn:active { transform: scale(.92); }
+  .swatch-btn[aria-pressed="true"] { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(217,178,92,.35), 0 2px 6px rgba(0,0,0,.35); }
+  .swatch-btn[aria-pressed="true"]::after { content: '✓'; position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center; color: #fff; font-size: 15px;
+    text-shadow: 0 1px 3px rgba(0,0,0,.9), 0 0 4px rgba(0,0,0,.6); font-weight: 900; }
+  .swatch-btn.shapeBtn { border-radius: 10px; width: auto; height: 36px; padding: 0 13px;
+    background: rgba(255,255,255,.05); color: var(--text); font: inherit; font-size: 11.5px;
+    font-weight: 700; border: 1px solid var(--line-strong); box-shadow: none; }
+  .swatch-btn.shapeBtn[aria-pressed="true"] { background: var(--lime); color: #10240a; border-color: var(--lime);
+    box-shadow: 0 3px 10px rgba(194,245,63,.25); }
+  .swatch-btn.shapeBtn[aria-pressed="true"]::after { content: none; }
+  .custNote { background: rgba(217,178,92,.07); border: 1px solid rgba(217,178,92,.25);
+    border-radius: 13px; padding: 12px 13px; margin-top: 4px; }
+  .custNote label { color: var(--gold); }
+  .custNote p { margin: 0; font-size: 11.5px; line-height: 1.55; color: var(--muted); }
 
   #err { display: none; width: 100%; max-width: 400px; padding: 12px; background: #3a0f0f;
     border: 1px solid #ff6b6b; border-radius: 10px; white-space: pre-wrap;
@@ -85,6 +148,7 @@
 </head>
 <body>
 
+<div class="brand"><span class="dot"></span></div>
 <h1>Street Blackjack Avatar</h1>
 <p class="sub">Technical proof: selfie &rarr; personalised character &rarr; rigged avatar &rarr;
   shared animations. Not the final game UI.</p>
@@ -95,6 +159,62 @@
   <div id="previewBox">
     <canvas id="gl"></canvas>
     <div id="loadingTag">Loading avatar&hellip;</div>
+  </div>
+  <button id="customizeBtn">&#127912; Customize</button>
+</div>
+
+<div id="customizeModal" hidden>
+  <div id="customizeBackdrop"></div>
+  <div id="customizePanel">
+    <header>
+      <h3>Customize Character</h3>
+      <button id="customizeClose" aria-label="Done">Done</button>
+    </header>
+    <div class="custBody">
+      <div class="custSection">
+        <label>Body</label>
+        <div class="seg" id="custBodySeg">
+          <button data-b="male" aria-pressed="true">Male</button>
+          <button data-b="female" aria-pressed="false">Female</button>
+        </div>
+      </div>
+      <div class="custSection">
+        <label>Skin Tone</label>
+        <div class="swatchRow" id="custSkin"></div>
+      </div>
+      <div class="custSection">
+        <label>Hair Style</label>
+        <div class="swatchRow" id="custHairStyle"></div>
+      </div>
+      <div class="custSection">
+        <label>Hair Color</label>
+        <div class="swatchRow" id="custHairColor"></div>
+      </div>
+      <div class="custSection">
+        <label>Eye Color</label>
+        <div class="swatchRow" id="custEyes"></div>
+      </div>
+      <div class="custSection">
+        <label>Lip Color</label>
+        <div class="swatchRow" id="custLips"></div>
+      </div>
+      <div class="custSection" id="custBeardSection">
+        <label>Beard</label>
+        <div class="swatchRow" id="custBeard"></div>
+      </div>
+      <div class="custSection">
+        <label>Glasses</label>
+        <div class="swatchRow" id="custGlasses"></div>
+      </div>
+      <div class="custSection custNote">
+        <label>Not available yet</label>
+        <p>Nose shape and true eye/lip shape need a different avatar source
+          than what's free and reachable right now — this body has zero face
+          shape data to select between. Hair style is a shaped cap covering
+          the original hair (a real geometry swap), not a totally different
+          mesh — it won't match a vendor-modelled hairstyle's fidelity.</p>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -305,6 +425,21 @@ let av = null;   // the current avatar: { root, mixer, actions, current }
 let modelKey = 'male';
 let tintHex = null;   // set by selfie personalisation; null = untinted
 
+// One shared state object: the selfie flow, the premade picker, and the
+// Customize popup all read/write this and rebuild from it, so there's a
+// single source of truth for "what does the character currently look like."
+const charState = {
+  bodyType: 'male', tint: null, hasGlasses: false, beardStyle: 'none',
+  eyeColor: null, lipColor: null, hairStyle: 'default', hairColor: null,
+};
+async function rebuildCharacter() {
+  await buildAvatar(charState.bodyType, {
+    tint: charState.tint, hasGlasses: charState.hasGlasses,
+    beardStyle: charState.beardStyle, eyeColor: charState.eyeColor, lipColor: charState.lipColor,
+    hairStyle: charState.hairStyle, hairColor: charState.hairColor,
+  });
+}
+
 function resizeRenderer() {
   const box = $('previewBox');
   const w = box.clientWidth, h = box.clientHeight;
@@ -324,30 +459,190 @@ addEventListener('resize', resizeRenderer);
 // to keep them tracking the head through Laugh, the Point custom clip, etc).
 function buildGlasses() {
   const g = new THREE.Group();
-  const frameMat = new THREE.MeshStandardMaterial({ color: 0x161616, roughness: 0.35, metalness: 0.5 });
-  const lensGeo = new THREE.TorusGeometry(0.026, 0.006, 8, 20);
-  const lensL = new THREE.Mesh(lensGeo, frameMat); lensL.position.set(-0.036, 0, 0);
-  const lensR = new THREE.Mesh(lensGeo, frameMat); lensR.position.set(0.036, 0, 0);
-  const bridge = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.016, 6), frameMat);
+  // Thin frame (was 0.006 tube radius — read as swim-goggle thick; real
+  // glasses frames are closer to 1-2mm at this head scale) plus an actual
+  // tinted, glossy LENS disc filling each ring — bare open rings is exactly
+  // what made these read as "craft-project circles" rather than glasses.
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0x1c1c1c, roughness: 0.3, metalness: 0.6 });
+  const lensMat = new THREE.MeshPhysicalMaterial({
+    color: 0x2a3a48, transparent: true, opacity: 0.32, roughness: 0.08,
+    metalness: 0, clearcoat: 1, clearcoatRoughness: 0.1, side: THREE.DoubleSide,
+  });
+  const lensGeo = new THREE.TorusGeometry(0.025, 0.0028, 8, 24);
+  const glassGeo = new THREE.CircleGeometry(0.025, 24);
+  function eye(x) {
+    const grp = new THREE.Group();
+    const ring = new THREE.Mesh(lensGeo, frameMat);
+    const glass = new THREE.Mesh(glassGeo, lensMat);
+    glass.position.z = 0.001;
+    grp.add(ring, glass);
+    grp.position.set(x, 0, 0);
+    return grp;
+  }
+  const lensL = eye(-0.034), lensR = eye(0.034);
+  const bridge = new THREE.Mesh(new THREE.CylinderGeometry(0.0022, 0.0022, 0.018, 6), frameMat);
   bridge.rotation.z = Math.PI / 2;
-  const armGeo = new THREE.CylinderGeometry(0.0035, 0.0035, 0.11, 6);
-  const armL = new THREE.Mesh(armGeo, frameMat); armL.position.set(-0.062, 0, -0.05); armL.rotation.x = Math.PI / 2;
-  const armR = new THREE.Mesh(armGeo, frameMat); armR.position.set(0.062, 0, -0.05); armR.rotation.x = Math.PI / 2;
+  const armGeo = new THREE.CylinderGeometry(0.002, 0.002, 0.10, 6);
+  const armL = new THREE.Mesh(armGeo, frameMat); armL.position.set(-0.058, 0, -0.045); armL.rotation.x = Math.PI / 2;
+  const armR = new THREE.Mesh(armGeo, frameMat); armR.position.set(0.058, 0, -0.045); armR.rotation.x = Math.PI / 2;
   g.add(lensL, lensR, bridge, armL, armR);
   g.name = 'glassesAccessory';
   return g;
 }
-function buildBeard() {
-  const mat = new THREE.MeshStandardMaterial({ color: 0x2a1f18, roughness: 0.9 });
-  const geo = new THREE.SphereGeometry(0.052, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.42);
+// Three real beard SHAPES (not just one), since the body has no beard mesh
+// of its own to swap. All the same technique as glasses — simple primitives
+// parented to the Head bone.
+const BEARD_STYLES = {
+  stubble: { poly: [0.044, 10, 8, 0, Math.PI * 2, 0, Math.PI * 0.30], scale: [1, 0.55, 0.8], y: 0.006 },
+  goatee:  { poly: [0.030, 10, 8, 0, Math.PI * 2, 0, Math.PI * 0.42], scale: [0.72, 0.9, 0.85], y: -0.006 },
+  full:    { poly: [0.052, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.42], scale: [1, 0.7, 0.85], y: 0.0 },
+};
+// A hard-edged sphere slice reads as a solid plastic dome, not hair. Fixed
+// with an alphaMap that fades opacity to 0 at the rim: SphereGeometry's V
+// coordinate runs 0 (pole) toward 1 (opposite pole), and this dome only uses
+// a small slice near V=0, so a plain VERTICAL gradient (not a true radial
+// one) already fades correctly in every direction from the pole outward,
+// since every point at a given V is equidistant from the pole in 3D.
+//
+// alphaMap reads the texture's GREEN colour channel as the opacity
+// multiplier — NOT the canvas's own alpha channel. A gradient built from
+// rgba(...,alpha) is invisible to it; the fade has to be encoded as an
+// actual grayscale VALUE (white=opaque, black=transparent) on an opaque
+// canvas. (First attempt used varying canvas alpha and rendered as a
+// uniformly-opaque texture — confirmed by reading the material back:
+// alphaMap was correctly assigned, transparent:true was set, yet the edge
+// was still a hard cutoff, which only makes sense if the map's green
+// channel was constant.)
+const _featherMapCache = new Map();
+function featherAlphaMap(midStop = 0.5, key = midStop) {
+  if (_featherMapCache.has(key)) return _featherMapCache.get(key);
+  const cv = document.createElement('canvas'); cv.width = 8; cv.height = 128;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 8, 128);
+  const grad = ctx.createLinearGradient(0, 0, 0, 128);
+  grad.addColorStop(0, '#fff'); grad.addColorStop(midStop, '#fff');
+  grad.addColorStop(Math.min(0.99, midStop + 0.28), '#888'); grad.addColorStop(1, '#000');
+  ctx.fillStyle = grad; ctx.fillRect(0, 0, 8, 128);
+  const tex = new THREE.CanvasTexture(cv);
+  _featherMapCache.set(key, tex);
+  return tex;
+}
+function buildBeard(style = 'full') {
+  const cfg = BEARD_STYLES[style] ?? BEARD_STYLES.full;
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0x2a1f18, roughness: 0.95, transparent: true, alphaMap: featherAlphaMap(0.5, 'beard'),
+  });
+  const geo = new THREE.SphereGeometry(...cfg.poly);
   const beard = new THREE.Mesh(geo, mat);
   beard.rotation.x = Math.PI;   // dome opens downward, hugging the jaw/chin
-  beard.scale.set(1, 0.7, 0.85);
+  beard.scale.set(...cfg.scale);
+  beard.position.set(0, cfg.y, 0.095);
   beard.name = 'beardAccessory';
   return beard;
 }
 
-async function buildAvatar(key, tint, traits) {
+// Real hairSTYLE (shape), on top of the existing hair COLOUR-via-texture-
+// paint limitation: since the baked hair is scattered across the texture in
+// pieces (see paintFace's notes), it can't be recoloured OR hidden by
+// painting. But it CAN be fully covered by an opaque accessory the same way
+// the beard covers the chin — this is a real geometry swap, not a colour
+// trick, and it's the thing that makes an actual "hairstyle" option honest
+// to offer. Sizing/position found the same way as everything else on this
+// rig: an unrotated dome (default sphere pole is already at +Y, matching a
+// cap — no flip needed, unlike the beard which hangs from the chin) placed
+// near HeadTop_End, not the Head bone's own origin (which sits down near the
+// jaw) — the first attempt used the wrong reference point and landed the
+// cap at ear height.
+const HAIR_STYLES = {
+  buzz: { r: 0.100, seg: [16, 12], theta: 0.42, y: 0.115, z: -0.005 },
+  crop: { r: 0.110, seg: [16, 12], theta: 0.65, y: 0.100, z: -0.010 },
+  swept:{ r: 0.112, seg: [16, 12], theta: 0.68, y: 0.098, z: -0.020 },
+};
+const HAIR_COLOR_DEFAULT = 0x2a1a12;
+function buildHairCap(style = 'crop', hex) {
+  const cfg = HAIR_STYLES[style] ?? HAIR_STYLES.crop;
+  const mat = new THREE.MeshStandardMaterial({
+    color: hex ?? HAIR_COLOR_DEFAULT, roughness: 0.8,
+    transparent: true, alphaMap: featherAlphaMap(0.55, 'hair-' + style),
+  });
+  const geo = new THREE.SphereGeometry(cfg.r, cfg.seg[0], cfg.seg[1], 0, Math.PI * 2, 0, Math.PI * cfg.theta);
+  const cap = new THREE.Mesh(geo, mat);
+  cap.position.set(0, cfg.y, cfg.z);
+  cap.name = 'hairAccessory';
+  return cap;
+}
+
+// ---- eye / lip colour: painted directly onto the shared texture ----------
+// The body has ONE mesh, ONE material — there is no separate eye or lip mesh
+// to recolour independently (confirmed by inspecting the loaded material:
+// a single "Wolf3D_Avatar1" material, zero morph targets). But the material
+// still has a TEXTURE, and texture pixels can be painted regardless of mesh
+// structure. These UV rectangles were found empirically — the flat texture
+// atlas doesn't unwrap intuitively (a blind first guess for "hair" turned
+// out to land on the forehead; a geometry-based search for scalp vertices
+// found hair is scattered across multiple disconnected UV islands spanning
+// nearly the whole atlas, which is why hair colour ISN'T offered below, only
+// eyes and lips, where a single small rectangle empirically lands cleanly).
+// `hue`/`color` are canvas composite modes that shift colour while keeping
+// the original texture's shading and highlights — a flat opaque fill looks
+// like a sticker; these look like an actual recoloured eye/lip.
+//
+// The male and female GLBs are separate art assets with DIFFERENT texture
+// atlas layouts — the male body's eye close-up sits top-right, the female
+// body's sits centre-middle. Confirmed by extracting and visually comparing
+// both atlases; do not assume one body's coordinates work on the other.
+//
+// Lip rect is deliberately shifted up from where it geometrically centres in
+// the mouth region — a flat, unshaded rectangle read as a smear sitting on
+// the chin below the actual lips, not the lips themselves.
+const FACE_UV = {
+  male:   { eye: [0.79, 0.015, 0.975, 0.205], lip: [0.18, 0.239, 0.31, 0.256] },
+  female: { eye: [0.51, 0.51, 0.745, 0.745],  lip: [0.18, 0.239, 0.31, 0.256] },
+};
+function paintFace(root, { eyeColor, lipColor }, bodyKey = 'male') {
+  if (!eyeColor && !lipColor) return;
+  const uv = FACE_UV[bodyKey] ?? FACE_UV.male;
+  root.traverse(o => {
+    if (!o.isMesh) return;
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    for (const mat of mats) {
+      const srcImg = mat.map?.image;
+      if (!srcImg) continue;
+      const cv = document.createElement('canvas');
+      cv.width = srcImg.width; cv.height = srcImg.height;
+      const ctx = cv.getContext('2d');
+      ctx.drawImage(srcImg, 0, 0);
+      // A hard-edged fillRect reads as a sticker. Blurring a filled ellipse
+      // before it composites gives a soft, organic-edged tint instead —
+      // the blur radius is scaled to the patch size so it looks right at
+      // any texture resolution, not just the one this was tuned against.
+      const paint = ([u0, v0, u1, v1], color, blend, alpha) => {
+        const x0 = u0 * cv.width, y0 = v0 * cv.height, x1 = u1 * cv.width, y1 = v1 * cv.height;
+        const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, rx = (x1 - x0) / 2, ry = (y1 - y0) / 2;
+        ctx.save();
+        ctx.globalCompositeOperation = blend;
+        ctx.globalAlpha = alpha ?? 1;
+        ctx.filter = `blur(${Math.max(2, Math.min(rx, ry) * 0.35)}px)`;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, rx * 0.92, ry * 0.92, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      };
+      if (eyeColor) paint(uv.eye, eyeColor, 'hue');
+      if (lipColor) paint(uv.lip, lipColor, 'color', 0.85);
+      const tex = new THREE.CanvasTexture(cv);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.flipY = mat.map.flipY;
+      tex.wrapS = mat.map.wrapS; tex.wrapT = mat.map.wrapT;
+      mat.map = tex;
+      mat.needsUpdate = true;
+    }
+  });
+}
+
+async function buildAvatar(key, opts = {}) {
+  const { tint, hasGlasses, beardStyle, eyeColor, lipColor, hairStyle, hairColor } = opts || {};
   $('loadingTag').classList.add('show');
   try {
     const base = await loadModel(key);
@@ -363,19 +658,21 @@ async function buildAvatar(key, tint, traits) {
       o.material = Array.isArray(o.material) ? o.material.map(m => m.clone()) : o.material.clone();
     });
     if (tint) applyTint(root, tint);
+    paintFace(root, { eyeColor, lipColor }, key);
     scene.add(root);
 
     let headBone = null;
     root.traverse(o => { if (o.isBone && o.name === 'Head') headBone = o; });
-    if (headBone && traits?.hasGlasses) {
+    if (headBone && hasGlasses) {
       const glasses = buildGlasses();
       glasses.position.set(0, 0.088, 0.115);
       headBone.add(glasses);
     }
-    if (headBone && traits?.hasFacialHair) {
-      const beard = buildBeard();
-      beard.position.set(0, 0.0, 0.095);
-      headBone.add(beard);
+    if (headBone && beardStyle && beardStyle !== 'none') {
+      headBone.add(buildBeard(beardStyle));
+    }
+    if (headBone && hairStyle && hairStyle !== 'default') {
+      headBone.add(buildHairCap(hairStyle, hairColor ? new THREE.Color(hairColor).getHex() : undefined));
     }
 
     const mixer = new THREE.AnimationMixer(root);
@@ -498,6 +795,115 @@ function buildButtons() {
 }
 $('resetBtn').onclick = resetToIdle;
 
+// ── Customize Character popup ───────────────────────────────────────────
+// Real, working options only: skin tone (material tint), eye/lip colour
+// (painted onto the shared texture — see paintFace above), beard shape
+// (geometry, since there's no beard mesh), glasses on/off. Hair and nose are
+// deliberately NOT here — there is nothing in this body's data to change for
+// either, and a swatch that silently does nothing is worse than no swatch.
+const SKIN_PRESETS = [
+  { hex: '#f0d0b0', label: 'Light' }, { hex: '#e0b48a', label: 'Fair' },
+  { hex: '#c68a5c', label: 'Medium' }, { hex: '#8a5a3c', label: 'Tan' },
+  { hex: '#5c4030', label: 'Deep' },
+];
+const EYE_PRESETS = [
+  { hex: '#4a3222', label: 'Brown' }, { hex: '#2e6fb0', label: 'Blue' },
+  { hex: '#3d7a4a', label: 'Green' }, { hex: '#6b5030', label: 'Hazel' },
+  { hex: '#7a9ab0', label: 'Grey' }, { hex: '#1a1a1a', label: 'Black' },
+];
+const LIP_PRESETS = [
+  { hex: '#a8654a', label: 'Natural' }, { hex: '#b03050', label: 'Rose' },
+  { hex: '#9c1f2e', label: 'Red' }, { hex: '#6b2540', label: 'Berry' },
+  { hex: '#c98a72', label: 'Nude' },
+];
+const BEARD_PRESETS = [
+  { key: 'none', label: 'None' }, { key: 'stubble', label: 'Stubble' },
+  { key: 'goatee', label: 'Goatee' }, { key: 'full', label: 'Full' },
+];
+const GLASSES_PRESETS = [
+  { key: false, label: 'None' }, { key: true, label: 'On' },
+];
+// A real geometry swap (a shaped, feather-edged cap covering the scalp),
+// not a texture trick — see buildHairCap's own notes for why the baked hair
+// can't be recoloured or removed directly, only covered.
+const HAIR_STYLE_PRESETS = [
+  { key: 'default', label: 'Default' }, { key: 'buzz', label: 'Buzz' },
+  { key: 'crop', label: 'Crop' }, { key: 'swept', label: 'Swept back' },
+];
+const HAIR_COLOR_PRESETS = [
+  { hex: '#1a1410', label: 'Black' }, { hex: '#3b2a1a', label: 'Brown' },
+  { hex: '#7a5a35', label: 'Chestnut' }, { hex: '#c9a15a', label: 'Blonde' },
+  { hex: '#8a3a2a', label: 'Auburn' }, { hex: '#8a8a8a', label: 'Grey' },
+];
+
+function renderSwatchRow(containerId, items, isActive, onPick, shape) {
+  const wrap = $(containerId);
+  wrap.innerHTML = '';
+  for (const item of items) {
+    const b = document.createElement('button');
+    b.className = 'swatch-btn' + (shape === 'shape' ? ' shapeBtn' : '');
+    b.setAttribute('aria-pressed', String(isActive(item)));
+    if (shape === 'shape') b.textContent = item.label;
+    else b.style.background = item.hex;
+    b.title = item.label;
+    b.onclick = async () => { await onPick(item); syncCustomizeUI(); };
+    wrap.appendChild(b);
+  }
+}
+
+function buildCustomizeUI() {
+  renderSwatchRow('custSkin', SKIN_PRESETS, i => charState.tint === i.hex,
+    async i => { charState.tint = i.hex; await rebuildCharacter(); });
+  renderSwatchRow('custHairStyle', HAIR_STYLE_PRESETS, i => charState.hairStyle === i.key,
+    async i => { charState.hairStyle = i.key; await rebuildCharacter(); }, 'shape');
+  renderSwatchRow('custHairColor', HAIR_COLOR_PRESETS, i => charState.hairColor === i.hex,
+    async i => { charState.hairColor = i.hex; await rebuildCharacter(); });
+  renderSwatchRow('custEyes', EYE_PRESETS, i => charState.eyeColor === i.hex,
+    async i => { charState.eyeColor = i.hex; await rebuildCharacter(); });
+  renderSwatchRow('custLips', LIP_PRESETS, i => charState.lipColor === i.hex,
+    async i => { charState.lipColor = i.hex; await rebuildCharacter(); });
+  renderSwatchRow('custBeard', BEARD_PRESETS, i => charState.beardStyle === i.key,
+    async i => { charState.beardStyle = i.key; await rebuildCharacter(); }, 'shape');
+  renderSwatchRow('custGlasses', GLASSES_PRESETS, i => charState.hasGlasses === i.key,
+    async i => { charState.hasGlasses = i.key; await rebuildCharacter(); }, 'shape');
+  syncCustomizeUI();
+}
+function syncCustomizeUI() {
+  for (const b of $('custBodySeg').children) b.setAttribute('aria-pressed', String(b.dataset.b === charState.bodyType));
+  $('custBeardSection').hidden = charState.bodyType !== 'male';
+  buildCustomizeUI._rerenderActive?.();
+}
+// re-render just the pressed state without rebuilding every button from
+// scratch (buildCustomizeUI already redraws fully; this keeps them in sync
+// after an external change like the selfie flow or premade picker)
+buildCustomizeUI._rerenderActive = () => {
+  const mark = (id, items, key) => {
+    const wrap = $(id); if (!wrap) return;
+    [...wrap.children].forEach((b, idx) => {
+      const item = items[idx];
+      const active = 'hex' in item ? charState[key] === item.hex : charState[key] === item.key;
+      b.setAttribute('aria-pressed', String(active));
+    });
+  };
+  mark('custSkin', SKIN_PRESETS, 'tint');
+  mark('custEyes', EYE_PRESETS, 'eyeColor');
+  mark('custLips', LIP_PRESETS, 'lipColor');
+  mark('custBeard', BEARD_PRESETS, 'beardStyle');
+  mark('custGlasses', GLASSES_PRESETS, 'hasGlasses');
+  mark('custHairStyle', HAIR_STYLE_PRESETS, 'hairStyle');
+  mark('custHairColor', HAIR_COLOR_PRESETS, 'hairColor');
+};
+
+$('customizeBtn').onclick = () => { $('customizeModal').hidden = false; };
+$('customizeClose').onclick = () => { $('customizeModal').hidden = true; };
+$('customizeBackdrop').onclick = () => { $('customizeModal').hidden = true; };
+$('custBodySeg').onclick = async e => {
+  const b = e.target.closest('button'); if (!b) return;
+  charState.bodyType = b.dataset.b;
+  await rebuildCharacter();
+  syncCustomizeUI();
+};
+
 // ── premade avatars (brief item 4): same rig, same clips, just a preset tint ──
 const PREMADES = [
   { key: 'male',   tint: '#c68a5c', label: 'A' },
@@ -518,7 +924,11 @@ function buildPremadePicks() {
     el.onclick = async () => {
       [...wrap.children].forEach(c => c.removeAttribute('data-active'));
       el.dataset.active = 'true';
-      await buildAvatar(p.key, p.tint);
+      charState.bodyType = p.key; charState.tint = p.tint;
+      charState.hasGlasses = false; charState.beardStyle = 'none';
+      charState.eyeColor = null; charState.lipColor = null;
+      await rebuildCharacter();
+      syncCustomizeUI();
     };
     wrap.appendChild(el);
   });
@@ -735,8 +1145,12 @@ $('selfie').onchange = async e => {
 async function generateFromSelfie(bodyType) {
   const msg = $('uploadMsg');
   try {
-    await buildAvatar(bodyType, '#' + pendingImg.skin.getHexString(),
-      { hasGlasses: pendingImg.hasGlasses, hasFacialHair: pendingImg.hasFacialHair });
+    charState.bodyType = bodyType;
+    charState.tint = '#' + pendingImg.skin.getHexString();
+    charState.hasGlasses = !!pendingImg.hasGlasses;
+    charState.beardStyle = pendingImg.hasFacialHair ? 'full' : 'none';
+    await rebuildCharacter();
+    syncCustomizeUI();
     msg.className = 'msg show ok';
     msg.textContent = 'Your avatar is ready ✓';
     $('bodyTypeSwitch').hidden = false;
@@ -765,12 +1179,12 @@ buildButtons();
 buildPremadePicks();
 resizeRenderer();
 requestAnimationFrame(tick);
-try { await buildAvatar('male', null); } catch (e) { showErr(e); }
+try { await rebuildCharacter(); buildCustomizeUI(); } catch (e) { showErr(e); }
 
 window.__demo = { THREE, play, resetToIdle, buildAvatar, applyTint, textureAverage,
                    getLandmarker, averageBrightness, faceSharpness, medianColour,
-                   detectGlasses, detectFacialHair, buildGlasses, buildBeard,
-                   detectBodyType, ensureFaceApi, analyseSelfie,
+                   detectGlasses, detectFacialHair, buildGlasses, buildBeard, buildHairCap, paintFace,
+                   detectBodyType, ensureFaceApi, analyseSelfie, rebuildCharacter, charState,
                    get av(){ return av; }, get bindQ(){ return _bindQ; } };
 </script>
 </body>
