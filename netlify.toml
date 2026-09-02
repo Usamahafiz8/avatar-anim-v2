@@ -1,0 +1,18 @@
+# The 3D assets are not in the repo — Ready Player Me's animation-library
+# licence forbids redistributing the animations, and this repo is public.
+# So we download them at BUILD time instead: they end up in the deploy and are
+# served as part of the app (the licensed use), without ever being committed.
+[build]
+  command = "node fetch-assets.mjs"
+  publish = "."
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# GLB is not in Netlify's default type map; without this the browser gets
+# application/octet-stream, which still loads but is worth setting correctly.
+[[headers]]
+  for = "/models/*"
+  [headers.values]
+    Content-Type = "model/gltf-binary"
+    Cache-Control = "public, max-age=31536000, immutable"

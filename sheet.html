@@ -1,0 +1,77 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Clip contact sheet</title>
+<style>
+  body{margin:0;background:#0d3b22;color:#eaf6ea;font:12px -apple-system,sans-serif}
+  #grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;padding:2px}
+  .cell{position:relative;background:radial-gradient(ellipse at 50% 35%,#2a8f52,#0d4526)}
+  .cell img{display:block;width:100%}
+  .cap{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.72);color:#c2f53f;
+       font-size:10px;padding:2px 3px;line-height:1.15;word-break:break-all}
+  #status{position:fixed;top:6px;left:6px;background:#000a;padding:4px 8px;border-radius:6px;z-index:9}
+</style></head><body>
+<div id="status">loading…</div><div id="grid"></div>
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.js" } }</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from './vendor/loaders/GLTFLoader.js';
+import { clone as cloneSkinned } from './vendor/utils/SkeletonUtils.js';
+
+const CLIPS = window.__CLIPS__;
+const loader = new GLTFLoader();
+const body = await loader.loadAsync('./models/rpm/Feminine_TPose.glb');
+
+body.scene.updateMatrixWorld(true);
+const bb = new THREE.Box3();
+body.scene.traverse(o => { if (o.isSkinnedMesh) { o.computeBoundingBox(); bb.union(o.boundingBox.clone().applyMatrix4(o.matrixWorld)); } });
+const H = bb.max.y - bb.min.y, MINY = bb.min.y;
+
+// ONE renderer for every cell. A canvas each blows past the browser's ~16
+// live WebGL context limit and the earliest cells silently render blank.
+const W = 260, HT = 350;
+const r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+r.setPixelRatio(1); r.setSize(W, HT, false);
+r.outputColorSpace = THREE.SRGBColorSpace;
+
+const sc = new THREE.Scene();
+sc.add(new THREE.HemisphereLight(0xffffff, 0x2f6b45, 2.2));
+const k = new THREE.DirectionalLight(0xffffff, 1.5); k.position.set(2, 4, 4); sc.add(k);
+const cam = new THREE.PerspectiveCamera(32, W / HT, .1, 50);
+cam.position.set(0, 0, 5.2);
+
+const root = cloneSkinned(body.scene);
+const visH = 2 * 5.2 * Math.tan(THREE.MathUtils.degToRad(16));
+const s = (visH * 0.84) / H;
+root.scale.setScalar(s);
+root.position.y = -MINY * s - visH * 0.42;
+sc.add(root);
+const mixer = new THREE.AnimationMixer(root);
+
+const grid = document.getElementById('grid');
+let done = 0;
+for (const name of CLIPS) {
+  const g = await loader.loadAsync(`./models/rpm/clips/${name}.glb`);
+  const clip = g.animations[0];
+  if (!clip) continue;
+
+  mixer.stopAllAction();
+  root.traverse(o => { if (o.isSkinnedMesh && o.skeleton) o.skeleton.pose(); });
+  const act = mixer.clipAction(clip);
+  act.reset(); act.setEffectiveWeight(1); act.play();
+  mixer.update(Math.min(1.5, clip.duration * 0.5));   // representative mid-clip frame
+  r.render(sc, cam);
+
+  const cell = document.createElement('div'); cell.className = 'cell';
+  const img = document.createElement('img'); img.src = r.domElement.toDataURL('image/png');
+  cell.appendChild(img);
+  const cap = document.createElement('div'); cap.className = 'cap';
+  cap.textContent = name.replace('M_Standing_Expressions_', 'EXPR ')
+                        .replace('F_Talking_Variations_', 'TALK ')
+                        .replace('F_Dances_', 'DANCE ')
+                        .replace('F_Standing_Idle_', 'IDLE ');
+  cell.appendChild(cap);
+  grid.appendChild(cell);
+  done++;
+  document.getElementById('status').textContent = `${done}/${CLIPS.length}`;
+}
+document.getElementById('status').textContent = 'READY ' + done;
+</script></body></html>

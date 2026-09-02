@@ -1,0 +1,1207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Street Blackjack — Avatar Runtime Spike</title>
+<style>
+  :root {
+    --felt-1: #2a8f52; --felt-2: #10502c; --felt-3: #08361d;
+    --lime: #c2f53f;
+    --bar: #0a0c0a;
+    --gold: #c9a24a;
+    --card-face: #fdfdfa;
+    --panel: rgba(8,20,13,.9);
+    --line: rgba(194,245,63,.22);
+    --text: #eaf6ea; --muted: #9db3a4;
+    --good: #6ee787; --warn: #ffd166; --bad: #ff6b6b;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body {
+    background: #000; color: var(--text);
+    font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ===== phone frame ===== */
+  #app { position: fixed; inset: 0; display: flex; flex-direction: column; }
+
+  /* ---- top bar ---- */
+  #topbar {
+    flex: 0 0 auto; background: var(--bar);
+    display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+    padding-top: calc(7px + env(safe-area-inset-top));
+  }
+  .icon-btn {
+    width: 38px; height: 38px; flex: 0 0 auto; border-radius: 11px; border: none;
+    background: #1b1f1c; color: #fff; font-size: 16px; display: grid; place-items: center; cursor: pointer;
+  }
+  #score {
+    background: #1b1f1c; border-radius: 10px; padding: 5px 10px; font-size: 10.5px;
+    line-height: 1.35; font-weight: 700; letter-spacing: .04em; flex: 0 0 auto;
+  }
+  #score div { display: flex; justify-content: space-between; gap: 12px; }
+  #score b { font-variant-numeric: tabular-nums; }
+  #logo { flex: 1 1 auto; text-align: center; line-height: .95; font-style: italic; }
+  #logo .s { font-size: clamp(12px, 3.3vw, 18px); font-weight: 900; color: #fff; }
+  #logo .b { font-size: clamp(14px, 3.9vw, 21px); font-weight: 900; color: var(--lime); letter-spacing: -.01em; }
+  #logo sup { font-size: 7px; vertical-align: super; color: #fff; font-style: normal; }
+  #chat { background: #16a34a; }
+
+  /* ---- felt ---- */
+  #felt {
+    position: relative; flex: 1 1 auto; overflow: hidden;
+    background: radial-gradient(ellipse 68% 42% at 50% 30%, var(--felt-1) 0%, var(--felt-2) 62%, var(--felt-3) 100%);
+  }
+  #gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 2; }
+  .layer  { position: absolute; z-index: 3; }   /* paints OVER the character */
+  .behind { z-index: 1; }                       /* paints UNDER the character */
+
+  #mic { top: 3.5%; right: 4%; }
+
+  /* opponent identity — behind the character, as in the reference */
+  #opp { top: 6.5%; left: 50%; transform: translateX(-50%); text-align: center; width: 70%; }
+  #ring {
+    width: clamp(66px, 21vw, 112px); aspect-ratio: 1; margin: 0 auto; border-radius: 50%;
+    background: #0d120e; border: 3px solid var(--lime);
+    box-shadow: 0 0 15px rgba(194,245,63,.5), inset 0 0 10px rgba(0,0,0,.6);
+    display: grid; place-items: center; position: relative;
+  }
+  #ring .ini { font-weight: 800; font-size: clamp(18px, 5.4vw, 29px); color: #fff; letter-spacing: .04em; }
+  #ring .dots { position: absolute; bottom: 12%; left: 50%; transform: translateX(-50%); display: flex; gap: 3px; }
+  #ring .dots i { width: 4px; height: 4px; border-radius: 50%; background: var(--lime); }
+  #opp .nm { margin-top: 5px; font-weight: 800; font-size: clamp(10px, 2.9vw, 14px); letter-spacing: .1em; color: #fff; }
+  #opp .cd { font-size: clamp(9px, 2.4vw, 12px); font-weight: 700; color: var(--lime); letter-spacing: .05em; }
+
+  /* deck row — the character stands ON this, so it paints over the canvas */
+  #deckrow {
+    top: 46%; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; justify-content: center; gap: 2.5%; width: 97%;
+  }
+  .pill {
+    border-radius: 999px; padding: 12px 4%; font-size: clamp(9.5px, 2.6vw, 13px); font-weight: 800;
+    letter-spacing: .05em; background: rgba(6,40,22,.5); border: 1px solid rgba(255,255,255,.07);
+    white-space: nowrap; cursor: pointer;
+  }
+  .pill.dim { color: rgba(255,255,255,.33); }
+  .pill.on  { color: #fff; }
+  .card {
+    border-radius: 7px; flex: 0 0 auto; position: relative;
+    width: clamp(44px, 13vw, 72px); aspect-ratio: 5/7; box-shadow: 0 5px 14px rgba(0,0,0,.4);
+  }
+  #deck {
+    background: repeating-linear-gradient(135deg, #10241a 0 6px, #0a1a12 6px 12px);
+    border: 2px solid var(--gold); display: grid; place-items: end center; padding-bottom: 8%;
+    color: #fff; font-weight: 800; font-size: clamp(10px, 2.9vw, 14px); align-self: flex-start;
+  }
+  #discard {
+    background: var(--card-face); display: grid; place-items: center; align-self: flex-start;
+    color: #111; font-size: clamp(24px, 7.5vw, 40px); line-height: 1;
+  }
+
+  /* player hand */
+  #hand {
+    left: 3%; right: 3%; bottom: 2.5%;
+    border: 1px solid rgba(201,162,74,.5); border-radius: 14px;
+    background: rgba(6,45,24,.3); padding: 3% 3% 2.2%;
+  }
+  #handcards { display: flex; justify-content: center; }
+  #handcards .card {
+    background: var(--card-face); margin-right: -1px; border: 1px solid rgba(0,0,0,.13);
+    display: grid; place-items: center;
+  }
+  #handcards .r { position: absolute; top: 4%; left: 7%; font-weight: 800; font-size: clamp(10px,2.8vw,14px); line-height: 1; }
+  #handcards .s { position: absolute; top: 20%; left: 7%; font-size: clamp(7px,2.1vw,10px); line-height: 1; }
+  #handcards .big { font-size: clamp(19px, 5.8vw, 31px); line-height: 1; }
+  .red { color: #c02434; } .blk { color: #111; }
+  #handfoot { display: flex; align-items: center; justify-content: flex-end; gap: 4%; margin-top: 3%; }
+  #handfoot .lbl { font-weight: 800; font-size: clamp(9.5px,2.6vw,13px); letter-spacing: .06em; }
+  #handfoot .gold {
+    background: linear-gradient(#f2d78d, #c9a24a); color: #2b2205; border-radius: 999px;
+    padding: 9px 5%; font-weight: 900; font-size: clamp(9.5px,2.6vw,13px); letter-spacing: .05em;
+    border: none; cursor: pointer;
+  }
+
+  /* ===== dev overlay ===== */
+  #devtoggle {
+    position: fixed; right: 8px; top: 62%; z-index: 40;   /* empty felt: clear of the deck row and the hand */
+    width: 40px; height: 40px; border-radius: 12px; font-size: 15px; cursor: pointer;
+    background: var(--panel); color: var(--lime); border: 1px solid var(--line);
+  }
+  #dev { position: fixed; inset: 0; z-index: 35; pointer-events: none; }
+  #dev.off { display: none; }
+  .panel {
+    position: absolute; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); pointer-events: auto;
+  }
+  #hud { top: calc(8px + env(safe-area-inset-top)); left: 8px; padding: 8px 10px; min-width: 156px; }
+  #hud h2, #ui h2 { margin: 0 0 7px; font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--lime); font-weight: 700; }
+  .row { display: flex; justify-content: space-between; gap: 12px; padding: 1px 0; font-size: 12px; }
+  .row span:first-child { color: var(--muted); }
+  .row span:last-child { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .fps-good { color: var(--good); } .fps-warn { color: var(--warn); } .fps-bad { color: var(--bad); }
+  #ui { right: 8px; top: calc(8px + env(safe-area-inset-top)); padding: 8px 10px; width: 170px; max-height: 74vh; overflow-y: auto; }
+  .grp { margin-bottom: 10px; }
+  .grp > label { display: block; font-size: 9px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 4px; }
+  .seg { display: flex; flex-wrap: wrap; gap: 4px; }
+  .seg button, .act {
+    flex: 1 1 auto; min-width: 34px; padding: 6px 5px; font: inherit; font-size: 11px; font-weight: 600;
+    color: var(--text); background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12);
+    border-radius: 7px; cursor: pointer;
+  }
+  .seg button[aria-pressed="true"] { background: var(--lime); color: #10240a; border-color: var(--lime); }
+  .act { width: 100%; margin-top: 4px; text-align: left; padding-left: 9px; }
+  .act.primary { background: rgba(194,245,63,.15); border-color: var(--line); }
+  .chk { display: flex; align-items: center; gap: 6px; padding: 3px 0; color: var(--muted); font-size: 11px; cursor: pointer; }
+  .chk input { accent-color: var(--lime); width: 14px; height: 14px; }
+  input[type=range] { accent-color: var(--lime); }
+  .grp b { color: var(--lime); font-variant-numeric: tabular-nums; }
+  #ui .note { font-size: 10px; margin-top: 6px; }
+  #results { left: 8px; bottom: 56px; padding: 8px 10px; display: none; max-width: min(390px, calc(100vw - 16px)); }
+  #results.on { display: block; }
+  table { border-collapse: collapse; width: 100%; font-size: 11px; }
+  th, td { text-align: right; padding: 2px 6px; border-bottom: 1px solid rgba(255,255,255,.08); font-variant-numeric: tabular-nums; }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--muted); font-weight: 600; font-size: 9px; text-transform: uppercase; }
+  #verdict { margin-top: 6px; font-size: 11px; line-height: 1.4; }
+
+  /* ===== 2D cartoon VFX, layered over the 3D character =====
+     Miyagi's reference GIFs (steam from ears, rolling on the floor) are cartoon
+     exaggeration. A realistic 3D avatar cannot produce that on its own, but 2D
+     effects painted on top get the same energy for almost nothing. */
+  #vfx { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
+  .fx { position: absolute; will-change: transform, opacity; }
+
+  .fx-steam {
+    border-radius: 50%;
+    /* solid core with a tight falloff — a soft gradient washes out on green felt */
+    background: radial-gradient(circle at 36% 34%, #fff 0%, #fff 42%, #dfeae2 70%, rgba(210,226,216,0) 84%);
+    filter: drop-shadow(0 1px 3px rgba(0,0,0,.28));
+    animation: steam var(--d,1.1s) cubic-bezier(.25,.6,.35,1) forwards;
+  }
+  @keyframes steam {
+    0%   { transform: translate(-50%,-50%) scale(.3) rotate(0deg);   opacity: 0; }
+    14%  { opacity: 1; }
+    62%  { opacity: .92; }
+    100% { transform: translate(calc(-50% + var(--dx,0px)), calc(-50% - var(--rise,60px))) scale(1.75) rotate(var(--rot,40deg)); opacity: 0; }
+  }
+
+  .fx-star {
+    font-size: var(--sz,20px); line-height: 1; text-shadow: 0 2px 5px rgba(0,0,0,.35);
+    animation: star var(--d,1s) cubic-bezier(.2,.7,.3,1) forwards;
+  }
+  @keyframes star {
+    0%   { transform: translate(-50%,-50%) scale(.2) rotate(0deg); opacity: 0; }
+    22%  { opacity: 1; }
+    100% { transform: translate(calc(-50% + var(--dx,0px)), calc(-50% - var(--rise,70px))) scale(1) rotate(var(--rot,180deg)); opacity: 0; }
+  }
+
+  .fx-drop {
+    width: var(--sz,13px); height: calc(var(--sz,13px) * 1.35);
+    background: linear-gradient(#dff1ff, #8fc7ee);
+    border-radius: 50% 50% 50% 50% / 62% 62% 38% 38%;
+    box-shadow: inset -1px -2px 2px rgba(255,255,255,.6);
+    animation: drop var(--d,1.1s) ease-in forwards;
+  }
+  @keyframes drop {
+    0%   { transform: translate(-50%,-50%) scale(.4); opacity: 0; }
+    20%  { opacity: .95; }
+    100% { transform: translate(calc(-50% + var(--dx,0px)), calc(-50% + var(--fall,80px))) scale(1); opacity: 0; }
+  }
+
+  /* ===== equipped-moves quick bar (player-sent reactions) ===== */
+  #quickbar {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    bottom: 30%; z-index: 4; display: flex; gap: 7px;
+    background: rgba(8,20,13,.72); border: 1px solid var(--line);
+    border-radius: 999px; padding: 6px 8px; backdrop-filter: blur(7px);
+  }
+  #quickbar button {
+    width: 40px; height: 40px; border-radius: 50%; border: none; cursor: pointer;
+    background: rgba(255,255,255,.07); font-size: 19px; line-height: 1; padding: 0;
+  }
+  #quickbar button:active { background: rgba(194,245,63,.3); transform: scale(.92); }
+
+  #loading { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(4,16,10,.94); z-index: 60; color: var(--lime); }
+  #loading.done { display: none; }
+  #err { position: fixed; left: 10px; right: 10px; top: 30%; padding: 13px; background: #3a0f0f; border: 1px solid #ff6b6b;
+         border-radius: 10px; display: none; white-space: pre-wrap; font-family: ui-monospace, Menlo, monospace; font-size: 11px; z-index: 70; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="topbar">
+    <button class="icon-btn" aria-label="Back">←</button>
+    <div id="score"><div>YOU <b>2</b></div><div>MASTER <b>0</b></div></div>
+    <div id="logo"><div class="s">STREET</div><div class="b">BLACKJACK<sup>™</sup></div></div>
+    <button class="icon-btn" id="chat" aria-label="Chat">🗨</button>
+    <button class="icon-btn" aria-label="Menu">☰</button>
+  </div>
+
+  <div id="felt">
+    <!-- behind the character -->
+    <div class="layer behind" id="opp">
+      <div id="ring"><span class="ini">MA</span><span class="dots"><i></i><i></i><i></i></span></div>
+      <div class="nm">MASTER</div>
+      <div class="cd">Cards: 3</div>
+    </div>
+
+    <canvas id="gl"></canvas>
+    <div id="vfx"></div>
+
+    <!-- in front, so the character stands ON the deck -->
+    <button class="layer icon-btn" id="mic" aria-label="Mic">●</button>
+    <div class="layer" id="deckrow">
+      <span class="pill dim">LAST CARD</span>
+      <div class="card" id="deck">35</div>
+      <div class="card" id="discard">♣</div>
+      <span class="pill on">END TURN</span>
+    </div>
+
+    <div id="quickbar"></div>
+
+    <div class="layer" id="hand">
+      <div id="handcards">
+        <div class="card"><span class="r red">8</span><span class="s red">♥</span><span class="big red">♥</span></div>
+        <div class="card"><span class="r red">10</span><span class="s red">♥</span><span class="big red">♥</span></div>
+        <div class="card"><span class="r blk">8</span><span class="s blk">♣</span><span class="big blk">♣</span></div>
+        <div class="card"><span class="r blk">K</span><span class="s blk">♠</span><span class="big blk">♠</span></div>
+      </div>
+      <div id="handfoot"><span class="lbl">CARDS: 4</span><button class="gold">LAST CARD</button></div>
+    </div>
+  </div>
+</div>
+
+<button id="devtoggle" aria-label="Toggle dev overlay">⚙</button>
+
+<div id="dev" class="off">
+  <div class="panel" id="hud">
+    <h2>Performance</h2>
+    <div class="row"><span>FPS</span><span id="m-fps">—</span></div>
+    <div class="row"><span>Frame</span><span id="m-frame">—</span></div>
+    <div class="row"><span>5% low</span><span id="m-worst">—</span></div>
+    <div class="row"><span>Draw calls</span><span id="m-calls">—</span></div>
+    <div class="row"><span>Triangles</span><span id="m-tris">—</span></div>
+    <div class="row"><span>JS heap</span><span id="m-heap">—</span></div>
+    <div class="row"><span>Characters</span><span id="m-chars">—</span></div>
+    <div class="row"><span>On-screen</span><span id="m-size">—</span></div>
+  </div>
+
+  <div class="panel" id="ui">
+    <h2>Spike controls</h2>
+    <div class="grp"><label>Characters</label>
+      <div class="seg" id="seg-count">
+        <button data-n="1" aria-pressed="true">1</button>
+        <button data-n="2" aria-pressed="false">2</button>
+        <button data-n="4" aria-pressed="false">4</button>
+        <button data-n="6" aria-pressed="false">6</button>
+      </div>
+    </div>
+    <div class="grp">
+      <label>Avatar (fallback picker)</label>
+      <div class="seg" id="seg-avatar">
+        <button data-m="male" aria-pressed="true">Male</button>
+        <button data-m="female" aria-pressed="false">Female</button>
+      </div>
+    </div>
+
+    <div class="grp">
+      <label>Game events</label>
+      <button class="act primary" id="auto-demo">▶ Auto demo</button>
+      <div id="event-buttons"></div>
+    </div>
+
+    <div class="grp"><label>Raw reactions</label><div id="clip-buttons"></div></div>
+    <div class="grp"><button class="act" id="reset-idle">&#8634; Reset / return to idle</button></div>
+    <div class="grp">
+      <label>Framing</label>
+      <div class="seg" id="seg-framing">
+        <button data-f="full" aria-pressed="true">Full body</button>
+        <button data-f="portrait" aria-pressed="false">Portrait</button>
+      </div>
+    </div>
+
+    <div class="grp" id="grp-size">
+      <label>Character size <b id="v-size2">26%</b></label>
+      <input type="range" id="opt-size" min="0.14" max="0.55" step="0.01" value="0.26" style="width:100%">
+    </div>
+
+    <div class="grp">
+      <label>Head size <b id="v-head">1.00x</b></label>
+      <input type="range" id="opt-head" min="1" max="3.2" step="0.05" value="1" style="width:100%">
+    </div>
+
+    <div class="grp" id="grp-face" hidden>
+      <label>Face size <b id="v-face">14%</b></label>
+      <input type="range" id="opt-face" min="0.06" max="0.34" step="0.01" value="0.14" style="width:100%">
+    </div>
+
+    <div class="grp">
+      <label>Resting opacity <b id="v-alpha">0%</b></label>
+      <input type="range" id="opt-alpha" min="0" max="1" step="0.05" value="0" style="width:100%">
+    </div>
+
+    <div class="grp">
+      <label>Reaction length <b id="v-hold">2.2s</b></label>
+      <input type="range" id="opt-hold" min="0.6" max="4" step="0.1" value="2.2" style="width:100%">
+      <label style="margin-top:6px">Fade out <b id="v-fade">0.45s</b></label>
+      <input type="range" id="opt-fade" min="0.1" max="1.2" step="0.05" value="0.45" style="width:100%">
+    </div>
+
+    <div class="grp"><label>Options</label>
+      <label class="chk"><input type="checkbox" id="opt-vfx" checked> Cartoon effects</label>
+      <label class="chk"><input type="checkbox" id="opt-fadeidle" checked> Fade out after reaction</label>
+      <label class="chk"><input type="checkbox" id="opt-ondemand"> Render on demand</label>
+      <label class="chk"><input type="checkbox" id="opt-toon" checked> Toon shading</label>
+      <label class="chk"><input type="checkbox" id="opt-shadow"> Contact shadow</label>
+    </div>
+    <div class="grp"><label>Benchmark</label>
+      <button class="act primary" id="run-bench">▶ Sweep 1→2→4→6</button>
+    </div>
+  </div>
+
+  <div class="panel" id="results">
+    <h2>Benchmark</h2>
+    <table id="res-table">
+      <thead><tr><th>Chars</th><th>FPS</th><th>5% low</th><th>Calls</th><th>Tris</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div id="verdict"></div>
+  </div>
+</div>
+
+<div id="loading">Loading avatar…</div>
+<div id="err"></div>
+
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.js" } }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from './vendor/loaders/GLTFLoader.js';
+import { clone as cloneSkinned } from './vendor/utils/SkeletonUtils.js';
+
+const $ = id => document.getElementById(id);
+const showErr = e => {
+  const b = $('err');
+  b.style.display = 'block';
+  const msg = String(e?.message ?? e);
+  // A 404 here means the 3D assets are missing. They are not in the repo on
+  // purpose (RPM licence), so a deploy has to run fetch-assets.mjs at build.
+  if (/404|Failed to fetch|NetworkError/i.test(msg) && /\.glb/i.test(msg)) {
+    const file = (msg.match(/[^/\s"]+\.glb/) || ['a model'])[0];
+    b.innerHTML = '<b>3D assets are missing.</b><br><br>Could not load <code>' + file +
+      '</code>.<br><br>The models are not committed to the repo — Ready Player Me\u2019s ' +
+      'licence forbids redistributing them. Run <code>node fetch-assets.mjs</code> locally, ' +
+      'or make sure the deploy runs it as its build command (see netlify.toml).';
+  } else {
+    b.textContent = 'ERROR\n\n' + (e?.stack ?? e);
+  }
+  console.error(e);
+};
+window.addEventListener('error', ev => showErr(ev.error || ev.message));
+
+// Ready Player Me avatar + Ready Player Me animation library.
+//
+// This is the real production asset shape, not an approximation:
+//   Feminine_TPose.glb   11,156 tris, 60 bones, ZERO animations  -> the body
+//   clips/*.glb          ZERO meshes, one animation each         -> the library
+//
+// Per user you ship one body; the clip files are downloaded once and shared by
+// everybody. Exactly the cost model this spike exists to prove.
+//
+// Why not the earlier sample characters: Michelle's GLB has a DEGENERATE BIND
+// POSE (rest skeleton collapses to ~0.002 units), so she can only ever play her
+// own clip — measured, see README. This RPM avatar has a valid bind pose (1.793)
+// and every clip drives it at a consistent 1.75-1.79. That difference is the
+// argument for making "valid bind pose" an acceptance check on the vendor.
+//
+// LICENSING: the RPM animation library is free for commercial use but ONLY with
+// Ready Player Me avatars — using these clips on a non-RPM character is
+// expressly prohibited, and redistribution is not permitted. They are local dev
+// assets here and must not be committed to either repo.
+// The character on screen. Both bodies are the animation library's own T-pose
+// bodies, because a clip only lands correctly on the rig it was authored
+// against, and this is that rig — 70 bones, flat open hands, no twist bones.
+// (RPM's separate XR/VR template body was tried and dropped: different rig,
+// 92 bones, bind pose already a relaxed controller grip, so the shared clips
+// land on the wrong rest frame and its hands stay visibly bent.)
+const MODELS = {
+  male:   { url: './models/rpm/Masculine.glb', rig: 'rpm', label: 'Male' },
+  female: { url: './models/rpm/Feminine.glb',  rig: 'rpm', label: 'Female' },
+};
+
+// Miyagi's full list (29/08): Idle -> Dance 1 -> Dance 2 -> Laugh -> Point ->
+// Celebrate -> Angry -> Shake head -> Clap -> Win -> Lose. Assignments were
+// made by rendering all 28 clips to a contact sheet and looking at them.
+// Only reactions that measurably READ at table scale. Motion is the total path
+// five joints travel over the reaction; below ~3 the move is a near-static pose
+// and simply does not register on a character this size:
+//
+//   Dance 2 9.3   Dance 1 6.0   Dance 3 4.9   Celebrate 4.7
+//   --- cut ---
+//   Celebrate(old) 3.0  Clap 2.2  Angry 1.5  Win 1.3  Lose 1.3
+//   Shake head 1.2  Point 0.9  Laugh 0.7
+//
+// RPM's whole "Standing Expressions" set measures 0.8-1.4 — they are subtle
+// conversational gestures meant for a close-up, not reactions read across a
+// table. Every one was cut. Angry survives only because its steam effect does
+// the work its body does not.
+const CLIP_FILES = [
+  { label: 'Idle',       file: 'F_Standing_Idle_001',        icon: '\u{1F610}' },
+  { label: 'Dance 1',    file: 'F_Dances_001',               icon: '\u{1F57A}' },
+  { label: 'Dance 2',    file: 'F_Dances_004',               icon: '\u{1F483}' },
+  { label: 'Dance 3',    file: 'F_Dances_006',               icon: '\u{1F3B6}' },
+  { label: 'Celebrate',  file: 'F_Dances_005',               icon: '\u{1F64C}' },
+  { label: 'Angry',      file: 'M_Standing_Expressions_012', icon: '\u{1F620}' },
+  { label: 'Laugh',      file: 'F_Talking_Variations_001',   icon: '\u{1F923}' },
+  { label: 'Lose',       file: 'M_Standing_Expressions_007', icon: '\u{1F614}' },
+];
+
+// The player's equipped taunts. Limits PLAYER-SENT reactions only — game events
+// still fire their own animation regardless of what is equipped.
+const LOADOUT_MAX = 4;
+const LOADOUT_KEY = 'sbj.loadout.v2';
+let LOADOUT = ['Dance 1', 'Dance 2', 'Dance 3', 'Celebrate'];
+try {
+  const saved = JSON.parse(localStorage.getItem(LOADOUT_KEY) || 'null');
+  // a loadout saved before a move was removed must not equip it any more
+  const known = new Set(CLIP_FILES.map(c => c.label));
+  const kept = Array.isArray(saved) ? saved.filter(l => known.has(l)) : [];
+  if (kept.length) LOADOUT = kept.slice(0, LOADOUT_MAX);
+} catch {}
+const saveLoadout = () => { try { localStorage.setItem(LOADOUT_KEY, JSON.stringify(LOADOUT)); } catch {} };
+
+// Miyagi's trigger moments (29/08): "win a hand, play a Black Jack, bring
+// someone back, win the game, send a reaction". These are what the real
+// integration will bind to — the realtime layer already emits round:result and
+// action:committed, so this is the shape, not a guess.
+const GAME_EVENTS = [
+  { event: 'Win a hand',       reaction: 'Celebrate'     },
+  { event: 'Play a BlackJack', reaction: 'Dance 2'       },
+  { event: 'Win the game',     reaction: 'Dance 1'       },
+  { event: 'Lose a hand',      reaction: 'Lose'          },
+  { event: 'Opponent misses',  reaction: 'Laugh'         },
+  { event: 'Annoyed',          reaction: 'Angry'         },
+];
+
+// Which cartoon effect rides along with which reaction.
+//   anchor 'ears'  both sides of the head   'crown' above it   'brow' upper face
+
+const EFFECTS = {
+  'Angry':     { kind: 'steam', anchor: 'ears',  every: 95,  dur: 1400 },
+  'Celebrate': { kind: 'star',  anchor: 'crown', every: 110, dur: 1300 },
+  'Laugh':     { kind: 'drop',  anchor: 'brow',  every: 300, dur: 1100 },
+  'Lose':      { kind: 'drop',  anchor: 'brow',  every: 420, dur: 1400 },
+};
+
+// Facial expression per reaction. The avatar exposes mouthSmile, mouthOpen and
+// eyesClosed as morph targets, so reactions show on the face rather than being
+// body language only. The face eases toward these and back; blinking runs on top.
+const FACES = {
+  'Idle':          { smile: .15, open: 0,   squint: 0   },
+  'Dance 1':       { smile: .60, open: .12, squint: 0   },
+  'Dance 2':       { smile: .65, open: .15, squint: 0   },
+  'Dance 3':       { smile: .60, open: .12, squint: 0   },
+  'Celebrate':     { smile: .90, open: .40, squint: .10 },
+  'Angry':         { smile: 0,   open: .15, squint: .45 },
+  'Laugh':         { smile: 1,   open: .55, squint: .35 },
+  'Lose':          { smile: 0,   open: .08, squint: .50 },
+};
+
+const CLIP_MAP = {
+  rpm: { idle: 'F_Standing_Idle_001',
+         map: Object.fromEntries(CLIP_FILES.map(c => [c.label, c.file])) },
+};
+const rigOf = k => CLIP_MAP[MODELS[k].rig];
+
+// ── renderer: ONE context and ONE scene for every character at the table ────
+const canvas = $('gl');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setClearAlpha(0);                      // the CSS felt shows through
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
+camera.position.set(0, 0, 6);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x2f6b45, 2.1));
+const key = new THREE.DirectionalLight(0xffffff, 1.6);
+key.position.set(2.2, 4.5, 3.5);
+scene.add(key);
+
+const shadowPlane = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), new THREE.ShadowMaterial({ opacity: .26 }));
+shadowPlane.rotation.x = -Math.PI / 2; shadowPlane.receiveShadow = true; shadowPlane.visible = false;
+scene.add(shadowPlane);
+
+// Both measured off the reference screenshot: the character is ~19% of the felt
+// and its feet land on the top edge of the deck.
+// Character height as a fraction of the felt. 0.19 matches Miyagi's reference
+// screenshot, but the face is unreadable at that size, so it is now a live
+// slider — see the note on facial expressions in the README.
+let TARGET_FRACTION = 0.26;   // a touch above the reference 19% so the face still reads
+
+// Framing. 'full' = the reference: whole body, feet on the deck. 'portrait'
+// anchors the HEAD instead, so the slider controls how big the FACE is rather
+// than how tall the body is — a full-body character has a head about 1/7.5 of
+// its height, so body size alone can never make the face readable.
+let FRAMING = 'full';       // Miyagi's reference composition; Portrait is a toggle
+let FACE_FRACTION = 0.14;      // head height as a fraction of the felt
+const HEAD_RATIO  = 7.5;       // body heights per head
+const HEAD_CENTRE = 0.93;      // head centre, as a fraction up from the feet
+const HEAD_Y      = 0.26;      // where the head sits on screen, from the top
+
+// Miyagi's reference is a Bitmoji/Snapchat-style character: head roughly 1/4 of
+// body height. A Ready Player Me avatar is realistic, about 1/7.5. Scaling the
+// Head bone is the cheapest way to move toward that stylised proportion without
+// new art — the skinned vertices weighted to the head follow it.
+//
+// Animation clips carry scale tracks for every bone, so the mixer overwrites
+// this on each update; it has to be re-applied AFTER mixer.update() every frame
+// (see applyHeadScale in the render loop), not once at build time.
+let HEAD_SCALE = 1.0;         // natural proportions; the chibi inflation made it worse, not better
+const FOOT_LINE = 0.465;
+let targetWorldHeight = .72, viewH = 3.78, viewW = 2.2, onScreenPct = 19;
+
+function resize() {
+  const r = $('felt').getBoundingClientRect();
+  const w = Math.max(1, r.width), h = Math.max(1, r.height);
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  viewH = 2 * camera.position.z * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  viewW = viewH * camera.aspect;
+  targetWorldHeight = viewH * TARGET_FRACTION;
+  layout(); invalidate();
+}
+
+// ── loading ────────────────────────────────────────────────────────────────
+const loader = new GLTFLoader();
+const cache = {};
+let avatars = [], currentModel = 'male', count = 1;
+
+async function loadModel(k) {
+  const m = MODELS[k];
+  if (cache[m.url]) return cache[m.url];
+  const gltf = await loader.loadAsync(m.url);
+  let tris = 0;
+  gltf.scene.traverse(o => {
+    if (!o.isMesh) return;
+    o.castShadow = true;
+    const g = o.geometry;
+    tris += g.index ? g.index.count / 3 : g.attributes.position.count / 3;
+    // The two merged bodies use the SAME material slot, but the masculine GLB
+    // names it `Wolf3D_Avatar1` — a glTF exporter dedupe suffix, not a
+    // different material. Personalisation matches on the name, so without this
+    // the "Overall" swatch silently never matched on the male body.
+    for (const mat of (Array.isArray(o.material) ? o.material : [o.material]))
+      if (/^Wolf3D_Avatar\d+$/.test(mat.name || '')) mat.name = 'Wolf3D_Avatar';
+  });
+  // Measure the SOURCE scene once. Two traps, each of which silently renders
+  // the character ~20x too small:
+  //  1. Box3.setFromObject on a SkinnedMesh reads bind-pose bounds — 149 units
+  //     here against a true 4.79, a box ~97% empty air.
+  //     SkinnedMesh.computeBoundingBox() skins the vertices first.
+  //  2. A SkeletonUtils clone reports those same wrong bounds, so this has to
+  //     happen on the source scene, before any cloning.
+  gltf.scene.updateMatrixWorld(true);
+  const box = new THREE.Box3();
+  gltf.scene.traverse(o => {
+    if (!o.isMesh) return;
+    if (o.isSkinnedMesh && typeof o.computeBoundingBox === 'function') {
+      o.computeBoundingBox();
+      box.union(o.boundingBox.clone().applyMatrix4(o.matrixWorld));
+      return;
+    }
+    if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+    box.union(o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld));
+  });
+  cache[m.url] = { scene: gltf.scene, clips: gltf.animations, tris: Math.round(tris),
+                   height: box.max.y - box.min.y, minY: box.min.y };
+  return cache[m.url];
+}
+
+function applyToon(root, on) {
+  root.traverse(o => {
+    if (!o.isMesh) return;
+    if (on) {
+      if (!o.userData.origMat) o.userData.origMat = o.material;
+      if (!o.userData.toonMat) {
+        const src = o.userData.origMat;
+        const g = new THREE.DataTexture(new Uint8Array([95, 165, 230, 255]), 4, 1, THREE.RedFormat);
+        g.needsUpdate = true; g.minFilter = g.magFilter = THREE.NearestFilter;
+        o.userData.toonMat = new THREE.MeshToonMaterial({
+          color: src.color ? src.color.clone() : new THREE.Color(0xcccccc),
+          map: src.map || null, gradientMap: g,
+        });
+        // carry the name across — personalisation matches on Wolf3D_Skin etc,
+        // and an unnamed toon material silently never matches
+        o.userData.toonMat.name = src.name;
+      }
+      o.material = o.userData.toonMat;
+    } else if (o.userData.origMat) o.material = o.userData.origMat;
+  });
+}
+
+// The shared animation library: clips harvested once from every Mixamo source
+// and reused by every Mixamo character. In production these would be clip-only
+// glTF files (~50-100KB each) rather than whole characters — the saving is the
+// same, we just do not have clip-only exports to hand here.
+let sharedClips = null;
+async function loadClipLibrary() {
+  if (sharedClips) return sharedClips;
+  sharedClips = [];
+  for (const { file } of CLIP_FILES.filter(c => c.file)) {
+    const g = await loader.loadAsync(`./models/rpm/clips/${file}.glb`);
+    const clip = g.animations[0];
+    if (!clip) continue;
+    clip.name = file;                       // address clips by their file name
+    sharedClips.push(clip);
+  }
+  console.log('[spike] clip library:', sharedClips.map(c => c.name).join(', '));
+  return sharedClips;
+}
+
+async function build() {
+  const m = MODELS[currentModel];
+  const rig = rigOf(currentModel);
+  const base = await loadModel(currentModel);
+  // a Mixamo body gets the whole shared library; the robot only has its own
+  const clips = await loadClipLibrary();   // shared by every character
+  for (const a of avatars) { a.mixer.stopAllAction(); scene.remove(a.root); }
+  avatars = [];
+  for (let i = 0; i < count; i++) {
+    const root = cloneSkinned(base.scene);           // rebinds the skeleton
+    applyToon(root, $('opt-toon').checked);
+    scene.add(root);
+    const mixer = new THREE.AnimationMixer(root);
+    let headBone = null, headTopBone = null;
+    const morphMeshes = [], meshes = [];
+    root.traverse(o => {
+      if (o.isBone && o.name === 'Head') headBone = o;
+      if (o.isBone && o.name === 'HeadTop_End') headTopBone = o;
+      if (o.morphTargetDictionary && o.morphTargetInfluences) morphMeshes.push(o);
+      if (o.isMesh) {
+        // SkeletonUtils.clone SHARES materials between clones, so fading one
+        // character would fade every character. Give each its own copy.
+        o.material = Array.isArray(o.material) ? o.material.map(m => m.clone()) : o.material.clone();
+        meshes.push(o);
+      }
+    });
+    const av = { root, mixer, actions: {}, current: null, headBone, headTopBone, morphMeshes, meshes,
+                 alpha: 1, alphaTarget: 1,
+                 face: { smile: .15, open: 0, squint: 0 }, faceTarget: { ...FACES['Idle'] },
+                 blink: 0, nextBlink: 1 + Math.random() * 4,
+                 baseHeight: base.height, baseMinY: base.minY, footY: 0 };
+    for (const clip of clips) av.actions[clip.name] = mixer.clipAction(clip);   // SHARED clip objects
+    av.alpha = FADE_OUT_IDLE ? IDLE_ALPHA : 1;
+    av.alphaTarget = av.alpha;
+    setAlpha(av, av.alpha);
+    avatars.push(av);
+    playClip(av, rig.idle, 0);
+  }
+  layout(); buildClipButtons(); updateStatic(); invalidate();
+}
+
+// Seat positions as fractions of the felt: {x from left, FEET y from top}.
+// One character sits dead centre on the deck, matching the reference; more than
+// one spreads across the upper felt for the multi-seat performance case.
+function seats(n) {
+  if (n === 1) return [[.50, FOOT_LINE]];
+  if (n === 2) return [[.28, FOOT_LINE], [.72, FOOT_LINE]];
+  if (n === 4) return [[.16, .34], [.39, FOOT_LINE], [.61, FOOT_LINE], [.84, .34]];
+  return [[.13, .29], [.37, .29], [.63, .29], [.87, .29], [.30, FOOT_LINE], [.70, FOOT_LINE]];
+}
+
+function layout() {
+  const n = avatars.length;
+  if (!n) return;
+  const pos = seats(n);
+  const portrait = FRAMING === 'portrait';
+
+  // full: size IS the body height. portrait: size is derived from the face.
+  const bodyFrac = portrait
+    ? FACE_FRACTION * HEAD_RATIO
+    : TARGET_FRACTION;
+  const charH = n > 2 && !portrait
+    ? Math.min(bodyFrac * viewH, (viewW / 4) * 1.45)
+    : bodyFrac * viewH;
+
+  avatars.forEach((a, i) => {
+    const s = charH / a.baseHeight;
+    a.root.scale.setScalar(s);
+    a.footY = -a.baseMinY * s;
+    const [fx, fy] = pos[i] ?? pos.at(-1);
+    let y;
+    if (portrait) {
+      // put the head centre at HEAD_Y; the body runs off the bottom of the
+      // felt and is covered by the deck row and the hand, which is fine
+      const portraitY = (0.5 - HEAD_Y) * viewH - a.baseMinY * s - HEAD_CENTRE * charH;
+      y = portraitY;
+    } else {
+      y = (0.5 - fy) * viewH + a.footY;
+    }
+    a.root.position.set((fx - 0.5) * viewW, y, 0);
+  });
+
+  shadowPlane.visible = $('opt-shadow').checked && !portrait;
+  shadowPlane.position.y = (0.5 - FOOT_LINE) * viewH;
+  onScreenPct = (charH / viewH) * 100;
+}
+
+// idle -> reaction -> idle. One-shots clamp and fade home on 'finished' — the
+// smooth transition that pre-rendered video cannot do.
+function playClip(av, name, fade = .25, once = false) {
+  const act = av.actions[name];
+  if (!act) return;
+  act.reset();
+  act.setLoop(once ? THREE.LoopOnce : THREE.LoopRepeat, once ? 1 : Infinity);
+  act.clampWhenFinished = false; act.enabled = true; act.setEffectiveWeight(1);
+  if (av.current && av.current !== act) av.current.crossFadeTo(act, fade, false);
+  act.play(); av.current = act; invalidate();
+}
+
+// Founder note (Miyagi, 31/08): reactions ran too long and ended abruptly —
+// "probably timing... not suppose to maybe so long. Also fade away."
+//
+// The library clips are 3.2s-9.8s, which is far too long for a card-game beat.
+// So we play only the front of a clip and crossfade home before it ends, which
+// both shortens it and makes it fade away instead of cutting. Both values are
+// live-tunable in the dev panel so the exact feel can be dialled in on device.
+let REACTION_HOLD = 2.2;   // seconds of the reaction we actually play
+let FADE_HOME     = 0.45;  // crossfade back into idle
+const FADE_IN     = 0.22;
+
+function triggerAll(label) {
+  const rig = rigOf(currentModel);
+  const name = rig.map[label];
+  if (!name) return;
+  const isIdle = name === rig.idle;
+
+  avatars.forEach((av, i) => setTimeout(() => {
+    clearTimeout(av.returnTimer);            // a new reaction cancels the pending return
+    playClip(av, name, FADE_IN, !isIdle);
+    av.faceTarget = { ...(FACES[label] ?? FACES['Idle']) };
+    av.alphaTarget = 1;                       // pop in for the reaction
+    runEffect(av, label);
+    if (isIdle) return;
+    const clipLen = av.actions[name]?.getClip().duration ?? REACTION_HOLD;
+    // start fading home before the hold elapses, so it eases out rather than stopping
+    const hold = Math.min(REACTION_HOLD, clipLen);
+    const startFade = Math.max(0.1, hold - FADE_HOME);
+    av.returnTimer = setTimeout(() => {
+      playClip(av, rig.idle, FADE_HOME);
+      av.faceTarget = { ...FACES['Idle'] };
+      av.alphaTarget = IDLE_ALPHA;            // then fade away
+      clearInterval(av.returnTimer && av.fxTimer); av.fxTimer = null;
+    }, startFade * 1000);
+  }, i * 60));   // stagger, so a table reads as a crowd not a chorus line
+}
+
+// Brief item 6: an explicit "Reset / Return to Idle" control, not just the
+// automatic fade-back. Cancels any in-flight reaction/return timer and effect
+// on every avatar and crossfades straight back to the resting idle state.
+function resetToIdle() {
+  const rig = rigOf(currentModel);
+  avatars.forEach(av => {
+    clearTimeout(av.returnTimer);
+    clearInterval(av.fxTimer); av.fxTimer = null;
+    playClip(av, rig.idle, FADE_HOME);
+    av.faceTarget = { ...FACES['Idle'] };
+    av.alphaTarget = IDLE_ALPHA;
+  });
+  invalidate();
+}
+
+function buildClipButtons() {
+  const wrap = $('clip-buttons'); wrap.innerHTML = '';
+  const rig = rigOf(currentModel);
+  for (const label of Object.keys(rig.map)) {
+    if (label === 'Idle') continue;                        // idle is the resting loop, not a trigger
+    if (!avatars[0]?.actions[rig.map[label]]) continue;    // clip absent for this rig
+    const b = document.createElement('button');
+    b.className = 'act'; b.textContent = label;
+    b.onclick = () => triggerAll(label);
+    wrap.appendChild(b);
+  }
+}
+
+// ── loop ───────────────────────────────────────────────────────────────────
+const clock = new THREE.Clock();
+let frames = [], lastHud = 0, needsRender = true, onDemand = false;
+const invalidate = () => { needsRender = true; };
+const anyPlaying = () => avatars.some(a =>
+  a.current?.isRunning() ||
+  ['smile','open','squint'].some(k => Math.abs(a.faceTarget[k] - a.face[k]) > .01) ||
+  a.blink > 0 ||
+  Math.abs((FADE_OUT_IDLE ? a.alphaTarget : 1) - a.alpha) > .002);
+function applyHeadScale(a) { if (a.headBone) a.headBone.scale.setScalar(HEAD_SCALE); }
+
+// Founder note: "Also fade away." The character eases out after its reaction
+// and eases back in when the next one fires, so the table is not permanently
+// occupied by a standing figure.
+let FADE_OUT_IDLE = true;
+let IDLE_ALPHA = 0;          // what it settles to between reactions
+
+function setAlpha(a, v) {
+  for (const m of a.meshes) {
+    const mats = Array.isArray(m.material) ? m.material : [m.material];
+    for (const mat of mats) {
+      mat.transparent = v < 0.999;
+      mat.depthWrite = v > 0.5;
+      mat.opacity = v;
+    }
+    m.visible = v > 0.004;
+  }
+}
+
+function updateFade(a, dt) {
+  const target = FADE_OUT_IDLE ? a.alphaTarget : 1;
+  if (Math.abs(target - a.alpha) < 0.002) { if (a.alpha !== target) { a.alpha = target; setAlpha(a, target); } return; }
+  // out is slower than in: a reaction should arrive promptly and linger on exit
+  const rate = target > a.alpha ? 7 : 1 / Math.max(0.15, FADE_HOME);
+  a.alpha += (target - a.alpha) * Math.min(1, dt * rate);
+  setAlpha(a, a.alpha);
+}
+
+// ---- 2D cartoon VFX ------------------------------------------------------
+// Effects are DOM elements positioned from the HEAD BONE projected to screen,
+// so they track the character as it moves and scale with it. Doing this in the
+// 3D scene would mean billboards, shaders and sorting; in the DOM it is CSS.
+const vfxLayer = $('vfx');
+const _v = new THREE.Vector3();
+
+function headScreen(a) {
+  if (!a.headBone) return null;
+  const felt = $('felt').getBoundingClientRect();
+  const toPx = (bone) => {
+    bone.updateWorldMatrix(true, false);
+    _v.setFromMatrixPosition(bone.matrixWorld).project(camera);
+    return { x: (_v.x * .5 + .5) * felt.width, y: (1 - (_v.y * .5 + .5)) * felt.height, z: _v.z };
+  };
+  const chin = toPx(a.headBone);
+  if (chin.z > 1) return null;                       // behind the camera
+  // exact head height in px: jaw bone to the top of the skull
+  const s = a.headTopBone ? Math.abs(toPx(a.headTopBone).y - chin.y) : 24;
+  return { x: chin.x, y: chin.y, s: Math.max(10, s) };
+}
+
+// p.s is the head height in px; p.y is the jaw. Offsets are in head-heights so
+// the effects stay correctly placed at any character size or framing.
+const ANCHORS = {
+  ears:  p => [{ x: p.x - p.s * .50, y: p.y - p.s * .34, dir: -1 },
+               { x: p.x + p.s * .50, y: p.y - p.s * .34, dir:  1 }],
+  crown: p => [{ x: p.x, y: p.y - p.s * 1.25, dir: 0 }],
+  brow:  p => [{ x: p.x + p.s * .45, y: p.y - p.s * .85, dir: 1 }],
+};
+
+const rnd = (a, b) => a + Math.random() * (b - a);
+
+function spawnFx(a, cfg) {
+  const p = headScreen(a);
+  if (!p) return;
+  for (const at of (ANCHORS[cfg.anchor] ?? ANCHORS.crown)(p)) {
+    const el = document.createElement('div');
+    el.className = 'fx fx-' + cfg.kind;
+    el.style.left = at.x + 'px';
+    el.style.top  = at.y + 'px';
+    el.style.setProperty('--d', cfg.dur + 'ms');
+    // Everything is a fraction of HEAD HEIGHT so it holds at any character
+    // size. A puff is roughly a quarter of a head and drifts about half a head.
+    if (cfg.kind === 'steam') {
+      const sz = p.s * rnd(.16, .30);
+      el.style.width = sz + 'px'; el.style.height = sz + 'px';
+      el.style.setProperty('--dx', (at.dir * rnd(p.s * .10, p.s * .34)) + 'px');
+      el.style.setProperty('--rise', rnd(p.s * .26, p.s * .48) + 'px');
+      el.style.setProperty('--rot', rnd(-60, 60) + 'deg');
+    } else if (cfg.kind === 'star') {
+      el.textContent = Math.random() < .5 ? '\u2728' : '\u2b50';
+      el.style.setProperty('--sz', p.s * rnd(.20, .34) + 'px');
+      el.style.setProperty('--dx', rnd(-p.s * .55, p.s * .55) + 'px');
+      el.style.setProperty('--rise', rnd(p.s * .30, p.s * .70) + 'px');
+      el.style.setProperty('--rot', rnd(-200, 200) + 'deg');
+    } else {
+      el.style.setProperty('--sz', p.s * .13 + 'px');
+      el.style.setProperty('--dx', rnd(p.s * .04, p.s * .16) + 'px');
+      el.style.setProperty('--fall', rnd(p.s * .55, p.s * .95) + 'px');
+    }
+    el.addEventListener('animationend', () => el.remove(), { once: true });
+    vfxLayer.appendChild(el);
+  }
+}
+
+// Emit for the life of the reaction, tracking the head each puff.
+function runEffect(a, label) {
+  clearInterval(a.fxTimer);
+  const cfg = EFFECTS[label];
+  if (!cfg || !VFX_ON) return;
+  const until = performance.now() + REACTION_HOLD * 1000;
+  spawnFx(a, cfg);
+  a.fxTimer = setInterval(() => {
+    if (performance.now() > until) { clearInterval(a.fxTimer); a.fxTimer = null; return; }
+    spawnFx(a, cfg);
+  }, cfg.every);
+}
+let VFX_ON = true;
+
+function setMorph(a, key, value) {
+  for (const m of a.morphMeshes) {
+    const i = m.morphTargetDictionary[key];
+    if (i !== undefined) m.morphTargetInfluences[i] = value;
+  }
+}
+
+// Ease the face toward its target and run an involuntary blink on top. Without
+// the blink a static-featured face reads as a mannequin even when it smiles.
+function updateFace(a, dt) {
+  if (!a.morphMeshes.length) return;
+  const k = Math.min(1, dt * 6);
+  for (const key of ['smile', 'open', 'squint'])
+    a.face[key] += (a.faceTarget[key] - a.face[key]) * k;
+
+  a.nextBlink -= dt;
+  if (a.nextBlink <= 0) { a.blink = 1; a.nextBlink = 2.5 + Math.random() * 4; }
+  if (a.blink > 0) a.blink = Math.max(0, a.blink - dt * 7);
+  const lid = Math.min(1, a.face.squint + Math.sin(a.blink * Math.PI) * 0.9);
+
+  setMorph(a, 'mouthSmile', a.face.smile);
+  setMorph(a, 'mouthOpen',  a.face.open);
+  setMorph(a, 'eyesClosed', lid);
+}
+
+function tick(now) {
+  requestAnimationFrame(tick);
+  const dt = clock.getDelta();
+  const active = !onDemand || anyPlaying() || needsRender;
+  if (active) {
+    for (const a of avatars) { a.mixer.update(dt); applyHeadScale(a); updateFace(a, dt); updateFade(a, dt); }
+    renderer.render(scene, camera);
+    needsRender = false;
+  }
+  frames.push(dt * 1000);
+  if (frames.length > 180) frames.shift();
+  if (now - lastHud > 250) { lastHud = now; updateHud(active); }
+}
+
+function stats() {
+  if (!frames.length) return { fps: 0, frame: 0, worst: 0 };
+  const s = [...frames].sort((a, b) => a - b);
+  const med = s[Math.floor(s.length / 2)];
+  const p95 = s[Math.floor(s.length * .95)] ?? s.at(-1);
+  return { fps: 1000 / med, frame: med, worst: 1000 / p95 };
+}
+
+function updateHud(active) {
+  const { fps, frame, worst } = stats();
+  const el = $('m-fps');
+  el.textContent = active ? fps.toFixed(0) : 'idle';
+  el.className = fps >= 55 ? 'fps-good' : fps >= 30 ? 'fps-warn' : 'fps-bad';
+  $('m-frame').textContent = frame.toFixed(1) + ' ms';
+  $('m-worst').textContent = worst.toFixed(0) + ' fps';
+  $('m-calls').textContent = renderer.info.render.calls;
+  $('m-tris').textContent = renderer.info.render.triangles.toLocaleString();
+  $('m-heap').textContent = performance.memory
+    ? (performance.memory.usedJSHeapSize / 1048576).toFixed(0) + ' MB' : 'n/a';
+}
+function updateStatic() {
+  $('m-chars').textContent = avatars.length;
+  $('m-size').textContent = onScreenPct.toFixed(0) + '% h';
+}
+
+// ── benchmark ──────────────────────────────────────────────────────────────
+async function runBench() {
+  const btn = $('run-bench'); btn.disabled = true;
+  const rows = [];
+  for (const n of [1, 2, 4, 6]) {
+    count = n; setPressed('seg-count', 'n', String(n));
+    await build();
+    const rig = rigOf(currentModel);
+    const first = Object.keys(rig.map).find(k => k !== 'Idle' && avatars[0]?.actions[rig.map[k]]);
+    const busy = setInterval(() => triggerAll(first), 900);
+    frames = [];
+    await new Promise(r => setTimeout(r, 3000));
+    clearInterval(busy);
+    const s = stats();
+    rows.push({ n, fps: s.fps, worst: s.worst, calls: renderer.info.render.calls, tris: renderer.info.render.triangles });
+  }
+  const tb = document.querySelector('#res-table tbody'); tb.innerHTML = '';
+  for (const r of rows) {
+    const tr = document.createElement('tr');
+    const cls = r.fps >= 55 ? 'fps-good' : r.fps >= 30 ? 'fps-warn' : 'fps-bad';
+    tr.innerHTML = `<td>${r.n}</td><td class="${cls}">${r.fps.toFixed(0)}</td><td>${r.worst.toFixed(0)}</td>` +
+                   `<td>${r.calls}</td><td>${r.tris.toLocaleString()}</td>`;
+    tb.appendChild(tr);
+  }
+  const six = rows.find(r => r.n === 6), one = rows.find(r => r.n === 1);
+  $('verdict').innerHTML =
+    (six.fps >= 55 ? `<b class="fps-good">Live 3D viable to 6.</b> Ship three.js at runtime.`
+     : six.fps >= 30 ? `<b class="fps-warn">Fine at 1–2, marginal at 6.</b> Live 3D heads-up, sprites for full tables.`
+     : `<b class="fps-bad">Does not hold at 6.</b> Keep the GLB pipeline, pre-render sprite sheets.`) +
+    `<br><span style="color:var(--muted)">1 char ${one.fps.toFixed(0)} fps · DPR ${Math.min(devicePixelRatio,2)}</span>`;
+  $('results').classList.add('on');
+  btn.disabled = false;
+}
+
+// ── wiring ─────────────────────────────────────────────────────────────────
+function setPressed(g, attr, v) {
+  for (const b of $(g).querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset[attr] === v));
+}
+$('seg-count').onclick = async e => {
+  const b = e.target.closest('button'); if (!b) return;
+  count = +b.dataset.n; setPressed('seg-count', 'n', b.dataset.n);
+  $('results').classList.remove('on'); await build();
+};
+$('opt-head').oninput = e => {
+  HEAD_SCALE = +e.target.value;
+  $('v-head').textContent = HEAD_SCALE.toFixed(2) + 'x';
+  avatars.forEach(applyHeadScale); invalidate();
+};
+$('seg-framing').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  FRAMING = b.dataset.f;
+  setPressed('seg-framing', 'f', FRAMING);
+  $('grp-size').hidden = FRAMING !== 'full';
+  $('grp-face').hidden = FRAMING !== 'portrait';
+  resize(); fadeIdentityForSize(); updateStatic();
+};
+$('opt-face').oninput = e => {
+  FACE_FRACTION = +e.target.value;
+  $('v-face').textContent = Math.round(FACE_FRACTION * 100) + '%';
+  resize(); fadeIdentityForSize(); updateStatic();
+};
+$('opt-size').oninput = e => {
+  TARGET_FRACTION = +e.target.value;
+  $('v-size2').textContent = Math.round(TARGET_FRACTION * 100) + '%';
+  resize();                       // recomputes targetWorldHeight, keeps feet on the deck
+  fadeIdentityForSize();
+  updateStatic();
+};
+
+// Past ~26% the character's head runs into the MA badge / MASTER label sitting
+// behind her. At that size the character IS the identity, so the block fades
+// out rather than being overlapped.
+function fadeIdentityForSize() {
+  if (FRAMING === 'portrait') { $('opp').style.opacity = '0'; return; }
+  const from = 0.26, to = 0.36;
+  const t = Math.min(1, Math.max(0, (TARGET_FRACTION - from) / (to - from)));
+  $('opp').style.opacity = (1 - t).toFixed(2);
+}
+$('opt-hold').oninput = e => { REACTION_HOLD = +e.target.value; $('v-hold').textContent = REACTION_HOLD.toFixed(1) + 's'; };
+$('opt-fade').oninput = e => { FADE_HOME = +e.target.value; $('v-fade').textContent = FADE_HOME.toFixed(2) + 's'; };
+$('opt-vfx').onchange = e => {
+  VFX_ON = e.target.checked;
+  if (!VFX_ON) { avatars.forEach(a => clearInterval(a.fxTimer)); vfxLayer.innerHTML = ''; }
+};
+$('opt-fadeidle').onchange = e => {
+  FADE_OUT_IDLE = e.target.checked;
+  if (!FADE_OUT_IDLE) avatars.forEach(a => { a.alphaTarget = 1; });
+  invalidate();
+};
+$('opt-alpha').oninput = e => {
+  IDLE_ALPHA = +e.target.value;
+  $('v-alpha').textContent = Math.round(IDLE_ALPHA * 100) + '%';
+  avatars.forEach(a => { if (a.alphaTarget < 1) a.alphaTarget = IDLE_ALPHA; });
+  invalidate();
+};
+$('opt-ondemand').onchange = e => { onDemand = e.target.checked; invalidate(); };
+$('opt-toon').onchange = e => {
+  avatars.forEach(a => applyToon(a.root, e.target.checked));
+  invalidate();
+};
+$('opt-shadow').onchange = e => {
+  const on = e.target.checked;
+  renderer.shadowMap.enabled = on; key.castShadow = on; shadowPlane.visible = on;
+  scene.traverse(o => { if (o.isMesh) o.material.needsUpdate = true; });
+  invalidate();
+};
+// game-event buttons
+const evWrap = $('event-buttons');
+for (const { event, reaction } of GAME_EVENTS) {
+  const b = document.createElement('button');
+  b.className = 'act'; b.textContent = event; b.title = '-> ' + reaction;
+  b.onclick = () => triggerAll(reaction);
+  evWrap.appendChild(b);
+}
+
+$('reset-idle').onclick = () => resetToIdle();
+
+// Auto demo: walks a plausible hand so the whole thing can be watched without
+// anyone pressing buttons.
+let demoTimer = null;
+$('auto-demo').onclick = () => {
+  const btn = $('auto-demo');
+  if (demoTimer) { clearTimeout(demoTimer); demoTimer = null; btn.textContent = '▶ Auto demo'; return; }
+  btn.textContent = '■ Stop demo';
+  const script = ['Win a hand','Taunt','Opponent misses','Lose a hand','Annoyed',
+                  'Play a BlackJack','Bring back','Refuse / no','Win the game'];
+  let i = 0;
+  const step = () => {
+    const ev = GAME_EVENTS.find(e => e.event === script[i % script.length]);
+    if (ev) triggerAll(ev.reaction);
+    i++;
+    demoTimer = setTimeout(step, (REACTION_HOLD + 1.1) * 1000);
+  };
+  step();
+};
+
+$('seg-avatar').onclick = async e => {
+  const b = e.target.closest('button'); if (!b) return;
+  currentModel = b.dataset.m;
+  setPressed('seg-avatar', 'm', currentModel);
+  $('loading').classList.remove('done');
+  await build();
+  $('loading').classList.add('done');
+};
+
+// ---- equipped moves ------------------------------------------------------
+const iconOf = label => CLIP_FILES.find(c => c.label === label)?.icon ?? '\u2753';
+
+function renderQuickbar() {
+  const bar = $('quickbar');
+  bar.innerHTML = '';
+  for (const label of LOADOUT) {
+    const b = document.createElement('button');
+    b.textContent = iconOf(label);
+    b.title = label;
+    b.setAttribute('aria-label', label);
+    b.onclick = ev => { ev.stopPropagation(); triggerAll(label); };
+    bar.appendChild(b);
+  }
+  bar.style.display = LOADOUT.length ? 'flex' : 'none';
+}
+
+$('run-bench').onclick = runBench;
+$('devtoggle').onclick = () => $('dev').classList.toggle('off');
+addEventListener('resize', resize);
+addEventListener('orientationchange', () => setTimeout(resize, 250));
+
+// tapping the felt fires a reaction, standing in for a real game event
+const randomReaction = () => {
+  const rig = rigOf(currentModel);
+  const l = Object.keys(rig.map).filter(k => k !== 'Idle' && avatars[0]?.actions[rig.map[k]]);
+  if (!l.length) return;
+  triggerAll(l[Math.floor(Math.random() * l.length)]);
+};
+$('felt').addEventListener('pointerdown', e => { if (!e.target.closest('.panel')) randomReaction(); });
+
+window.__spike = { THREE,
+                   get scene(){return scene}, get camera(){return camera},
+                   get avatars(){return avatars}, get renderer(){return renderer},
+                   get onScreenPct(){return onScreenPct} };
+
+renderQuickbar();
+
+(async function start() {
+  try {
+    resize(); await build(); fadeIdentityForSize();
+    $('loading').classList.add('done');
+    setPressed('seg-avatar', 'm', currentModel);
+    requestAnimationFrame(tick);
+  } catch (e) { showErr(e); }
+})();
+</script>
+</body>
+</html>

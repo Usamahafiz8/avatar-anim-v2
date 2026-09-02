@@ -1,0 +1,777 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Street Blackjack — Avatar Demo</title>
+<style>
+  :root {
+    --bg: #0b1410; --panel: #0f1c15; --line: rgba(255,255,255,.10);
+    --lime: #c2f53f; --text: #eaf6ea; --muted: #8fa898; --warn: #ffb84d; --bad: #ff6b6b; --good: #59d98a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+  body { min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    padding: 24px 16px 48px; }
+
+  h1 { font-size: 18px; font-weight: 800; letter-spacing: .02em; margin: 0 0 4px; text-align: center; }
+  .sub { color: var(--muted); font-size: 12.5px; text-align: center; margin: 0 0 22px; max-width: 380px; }
+
+  .card { width: 100%; max-width: 400px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 16px; padding: 18px; margin-bottom: 14px; }
+  .card h2 { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--muted); margin: 0 0 12px; }
+
+  .btn { display: block; width: 100%; padding: 13px; border-radius: 12px; font: inherit; font-size: 14px;
+    font-weight: 800; cursor: pointer; border: 1px solid var(--line); text-align: center; }
+  .btn.primary { background: var(--lime); color: #10240a; border: none; }
+  .btn.primary:disabled { background: rgba(194,245,63,.25); color: rgba(16,36,10,.5); cursor: not-allowed; }
+  .btn.ghost { background: rgba(255,255,255,.05); color: var(--text); }
+  .btn + .btn { margin-top: 8px; }
+  input[type=file] { display: none; }
+
+  .msg { font-size: 12.5px; line-height: 1.5; margin-top: 10px; padding: 10px 12px; border-radius: 10px;
+    display: none; }
+  .msg.show { display: block; }
+  .msg.error { background: rgba(255,107,107,.12); color: var(--bad); border: 1px solid rgba(255,107,107,.3); }
+  .msg.ok { background: rgba(89,217,138,.12); color: var(--good); border: 1px solid rgba(89,217,138,.3); }
+  .msg a { color: var(--lime); font-weight: 700; }
+
+  .previewWrap { width: 100%; max-width: 400px; }
+  #previewBox { position: relative; width: 100%; aspect-ratio: 3/4; border-radius: 16px; overflow: hidden;
+    background: radial-gradient(ellipse 70% 60% at 50% 38%, #1f5f3a, #0a1f14);
+    border: 1px solid var(--line); margin-bottom: 14px; }
+  #gl { width: 100%; height: 100%; display: block; }
+  #loadingTag { position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+    color: var(--muted); font-size: 12.5px; background: rgba(10,20,14,.6); }
+  #loadingTag.show { display: flex; }
+
+  .row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; }
+  .act { aspect-ratio: 1; border-radius: 12px; border: 1px solid var(--line); background: rgba(255,255,255,.05);
+    color: var(--text); font: inherit; font-size: 10px; font-weight: 700; letter-spacing: .01em;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+    cursor: pointer; padding: 4px; }
+  .act .ic { font-size: 19px; line-height: 1; }
+  .act:active { background: rgba(194,245,63,.18); border-color: var(--lime); }
+
+  .more { margin-top: 10px; }
+  .more summary { cursor: pointer; font-size: 11px; color: var(--muted); font-weight: 700;
+    letter-spacing: .04em; text-transform: uppercase; }
+  .more .row { grid-template-columns: repeat(4, 1fr); margin-top: 8px; }
+
+  .picks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .pick { aspect-ratio: 1; border-radius: 12px; cursor: pointer; border: 2px solid transparent;
+    background: radial-gradient(ellipse at 50% 32%, #245c3a, #0c2417);
+    display: grid; place-items: end center; padding-bottom: 6px; }
+  .pick span { font-size: 9px; font-weight: 800; letter-spacing: .03em; color: #eaf6ea;
+    background: rgba(0,0,0,.5); border-radius: 5px; padding: 2px 6px; }
+  .pick[data-active="true"] { border-color: var(--lime); }
+
+  .link { color: var(--lime); font-size: 12px; font-weight: 700; text-align: center; display: block;
+    margin-top: 12px; cursor: pointer; background: none; border: none; font: inherit; }
+
+  .seg { display: flex; gap: 6px; margin-top: 10px; }
+  .seg[hidden] { display: none; }
+  .seg button { flex: 1; padding: 8px; border-radius: 10px; border: 1px solid var(--line);
+    background: rgba(255,255,255,.05); color: var(--muted); font: inherit; font-size: 11.5px;
+    font-weight: 700; cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--lime); color: #10240a; border-color: var(--lime); }
+
+  #err { display: none; width: 100%; max-width: 400px; padding: 12px; background: #3a0f0f;
+    border: 1px solid #ff6b6b; border-radius: 10px; white-space: pre-wrap;
+    font-family: ui-monospace, Menlo, monospace; font-size: 11px; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+
+<h1>Street Blackjack Avatar</h1>
+<p class="sub">Technical proof: selfie &rarr; personalised character &rarr; rigged avatar &rarr;
+  shared animations. Not the final game UI.</p>
+
+<div id="err"></div>
+
+<div class="previewWrap">
+  <div id="previewBox">
+    <canvas id="gl"></canvas>
+    <div id="loadingTag">Loading avatar&hellip;</div>
+  </div>
+</div>
+
+<div class="card" id="uploadCard">
+  <h2>1. Upload selfie</h2>
+  <label class="btn primary" for="selfie" id="uploadLabel">Upload Selfie</label>
+  <input type="file" id="selfie" accept="image/*">
+  <button class="btn primary" id="generateBtn" disabled>Generate Avatar</button>
+  <div class="msg" id="uploadMsg"></div>
+  <div class="seg" id="bodyTypeSwitch" hidden>
+    <button data-b="male" aria-pressed="true">Male body</button>
+    <button data-b="female" aria-pressed="false">Female body</button>
+  </div>
+  <button class="link" id="usePremadeLink">Or choose a premade avatar instead</button>
+</div>
+
+<div class="card" id="premadeCard" hidden>
+  <h2>Choose a premade avatar</h2>
+  <div class="picks" id="picks"></div>
+</div>
+
+<div class="card" id="animCard">
+  <h2>2. Animations</h2>
+  <div class="row" id="mainRow"></div>
+  <details class="more">
+    <summary>More (dances + custom)</summary>
+    <div class="row" id="extraRow"></div>
+  </details>
+  <button class="btn ghost" id="resetBtn" style="margin-top:12px;">&#8634; Reset to Idle</button>
+</div>
+
+<!-- Real gender classification (AgeGenderNet, ~420KB, free/MIT) — plain <script>,
+     not a module import, so it registers window.faceapi the same way the
+     library's own docs show. Used to pick Male/Female body automatically;
+     always overridable via the dev-panel avatar switch (never a hard lock-in
+     to a guess a classifier can get wrong). -->
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.js" } }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from './vendor/loaders/GLTFLoader.js';
+import { clone as cloneSkinned } from './vendor/utils/SkeletonUtils.js';
+
+const $ = id => document.getElementById(id);
+const showErr = e => {
+  const b = $('err');
+  b.style.display = 'block';
+  const msg = String(e?.message ?? e);
+  b.textContent = /404|Failed to fetch|NetworkError/i.test(msg) && /\.glb/i.test(msg)
+    ? `Missing 3D assets. Run:  node fetch-assets.mjs\n\n${msg}`
+    : msg;
+  console.error(e);
+};
+window.addEventListener('error', ev => showErr(ev.error || ev.message));
+
+// ── the shared engine: same bodies, same clips, same loading code as index.html ──
+const MODELS = {
+  male:   { url: './models/rpm/Masculine.glb', label: 'Male' },
+  female: { url: './models/rpm/Feminine.glb',  label: 'Female' },
+};
+
+const CLIP_FILES = [
+  { label: 'Idle',      file: 'F_Standing_Idle_001',        icon: '\u{1F610}' },
+  { label: 'Celebrate', file: 'F_Dances_005',               icon: '\u{1F64C}' },
+  { label: 'Laugh',     file: 'F_Talking_Variations_001',   icon: '\u{1F923}' },
+  { label: 'Angry',     file: 'M_Standing_Expressions_012', icon: '\u{1F620}' },
+  { label: 'Lose',      file: 'M_Standing_Expressions_007', icon: '\u{1F614}' },
+];
+const EXTRA_CLIP_FILES = [
+  { label: 'Dance 1', file: 'F_Dances_001', icon: '\u{1F57A}' },
+  { label: 'Dance 2', file: 'F_Dances_004', icon: '\u{1F483}' },
+  { label: 'Dance 3', file: 'F_Dances_006', icon: '\u{1F3B6}' },
+  { label: 'Point',   authored: true,        icon: '\u{1F449}' },   // the custom-animation proof, item 6
+];
+const ALL_CLIPS = [...CLIP_FILES, ...EXTRA_CLIP_FILES];
+
+const loader = new GLTFLoader();
+const cache = {};
+
+async function loadModel(key) {
+  // `key` is either a MODELS entry name (premades) or a raw GLB URL
+  // (an Avaturn-exported avatar, which isn't in MODELS at all).
+  const url = MODELS[key]?.url ?? key;
+  if (cache[url]) return cache[url];
+  const gltf = await loader.loadAsync(url);
+  let tris = 0;
+  gltf.scene.traverse(o => {
+    if (!o.isMesh) return;
+    const g = o.geometry;
+    tris += g.index ? g.index.count / 3 : g.attributes.position.count / 3;
+  });
+  // Two traps that each silently render the character ~20x too small:
+  // Box3.setFromObject on a SkinnedMesh reads BIND-POSE bounds, not the true
+  // skinned size, and a clone reports the same wrong numbers — so this has to
+  // be measured on the source scene, once, before any cloning.
+  gltf.scene.updateMatrixWorld(true);
+  const box = new THREE.Box3();
+  gltf.scene.traverse(o => {
+    if (!o.isMesh) return;
+    if (o.isSkinnedMesh && typeof o.computeBoundingBox === 'function') {
+      o.computeBoundingBox();
+      box.union(o.boundingBox.clone().applyMatrix4(o.matrixWorld));
+      return;
+    }
+    if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+    box.union(o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld));
+  });
+  cache[url] = { scene: gltf.scene, tris: Math.round(tris),
+                 height: box.max.y - box.min.y, minY: box.min.y };
+  return cache[url];
+}
+
+let sharedClips = null;
+async function loadClipLibrary() {
+  if (sharedClips) return sharedClips;
+  sharedClips = [];
+  for (const { file } of ALL_CLIPS.filter(c => c.file)) {
+    const g = await loader.loadAsync(`./models/rpm/clips/${file}.glb`);
+    const clip = g.animations[0];
+    if (!clip) continue;
+    clip.name = file;
+    sharedClips.push(clip);
+  }
+  return sharedClips;
+}
+
+// ---- the custom-animation proof (brief item 6) ---------------------------
+// A clip built from hand-keyframed bone-rotation deltas, not a vendor mocap
+// file — proving the rig accepts animation from ANY source, not just RPM's
+// library. Kept deliberately small per the brief ("do not spend excessive
+// time making this perfect"): a one-arm point with a small head nod.
+//
+// Axes were MEASURED on this exact body, not guessed (see project memory
+// "avatar rig calibration"): this rig's bind pose is a literal T-pose, and
+// RightArm's X-axis is GIMBAL-FRAGILE past ~95 degrees (flips the arm to
+// point overhead). This clip stays inside the verified-safe 55-90 degree
+// window for the whole gesture, and only uses Head's X-axis (verified safe
+// for pitch) — never Y (yaw) or Spine, both of which spin the character to
+// face away from the camera on this rig at even modest angles.
+const R = Math.PI / 180;
+const _bindQ = new Map();
+function captureBind(root) {
+  _bindQ.clear();
+  root.traverse(o => { if (o.isBone) _bindQ.set(o.name, o.quaternion.clone()); });
+}
+function authorClip(name, duration, keys) {
+  const bones = new Set();
+  for (const k of keys) for (const b of Object.keys(k.pose)) bones.add(b);
+  const tracks = [];
+  const e = new THREE.Euler(), q = new THREE.Quaternion();
+  for (const bone of bones) {
+    const bind = _bindQ.get(bone);
+    if (!bind) continue;
+    const times = [], values = [];
+    for (const k of keys) {
+      const d = k.pose[bone] ?? [0, 0, 0];
+      e.set(d[0], d[1], d[2]);
+      q.setFromEuler(e);
+      const out = bind.clone().multiply(q);
+      times.push(k.t);
+      values.push(out.x, out.y, out.z, out.w);
+    }
+    tracks.push(new THREE.QuaternionKeyframeTrack(bone + '.quaternion', times, values));
+  }
+  return new THREE.AnimationClip(name, duration, tracks);
+}
+// A bone with no track in this clip does NOT reset to bind when it plays —
+// it keeps whatever LOCAL rotation the previous action (Idle) left it at,
+// which was only ever meaningful relative to IDLE's own parent orientation.
+// Force this clip's arm bones to a different orientation and their untouched
+// children (forearm, hand) inherit a stale local rotation that now composes
+// against the WRONG parent — the hand can end up anywhere, including up near
+// the head, even though its own value never numerically changed. Verified by
+// measuring world position before/after: LeftHand jumped to y=1.6 (above the
+// head) purely from LeftArm's parent rotation changing under it. Fix: every
+// bone in a chain this clip touches gets an EXPLICIT hold (delta 0 = bind),
+// all the way to the end effector, at every keyframe — not just the joint
+// meant to move.
+const ARM_REST = { RightForeArm: [0,0,0], RightHand: [0,0,0], LeftForeArm: [0,0,0], LeftHand: [0,0,0] };
+const DOWN = { RightArm: [90 * R, 0, 0], LeftArm: [90 * R, 0, 0], ...ARM_REST };   // verified: arms hanging naturally
+function buildPointClip() {
+  return authorClip('Point', 1.8, [
+    { t: 0.00, pose: { ...DOWN, Head: [0, 0, 0] } },
+    { t: 0.35, pose: { RightArm: [58 * R, 0, 0], LeftArm: [90 * R, 0, 0], ...ARM_REST, Head: [8 * R, 0, 0] } },  // arm raises to point
+    { t: 0.90, pose: { RightArm: [58 * R, 0, 0], LeftArm: [90 * R, 0, 0], ...ARM_REST, Head: [8 * R, 0, 0] } },  // hold the point
+    { t: 1.20, pose: { RightArm: [70 * R, 0, 0], LeftArm: [90 * R, 0, 0], ...ARM_REST, Head: [4 * R, 0, 0] } },
+    { t: 1.80, pose: { ...DOWN, Head: [0, 0, 0] } },
+  ]);
+}
+
+// ---- the one avatar this demo shows ---------------------------------------
+const canvas = $('gl');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 50);
+camera.position.set(0, 0, 5.4);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x1f5f3a, 2.2));
+const key = new THREE.DirectionalLight(0xffffff, 1.6); key.position.set(1.4, 3, 4); scene.add(key);
+
+let av = null;   // the current avatar: { root, mixer, actions, current }
+let modelKey = 'male';
+let tintHex = null;   // set by selfie personalisation; null = untinted
+
+function resizeRenderer() {
+  const box = $('previewBox');
+  const w = box.clientWidth, h = box.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+addEventListener('resize', resizeRenderer);
+
+// ---- glasses / facial-hair accessories -----------------------------------
+// The body has no separate glasses or beard mesh (single merged material,
+// see the personalisation notes below), so a detected trait can't be
+// "coloured on" the way skin tone is — it needs actual geometry. These are
+// deliberately simple primitives, sized in real-world metres to match the
+// body's own coordinate space, then parented directly to the Head BONE so
+// they inherit its animation automatically (no extra per-frame code needed
+// to keep them tracking the head through Laugh, the Point custom clip, etc).
+function buildGlasses() {
+  const g = new THREE.Group();
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0x161616, roughness: 0.35, metalness: 0.5 });
+  const lensGeo = new THREE.TorusGeometry(0.026, 0.006, 8, 20);
+  const lensL = new THREE.Mesh(lensGeo, frameMat); lensL.position.set(-0.036, 0, 0);
+  const lensR = new THREE.Mesh(lensGeo, frameMat); lensR.position.set(0.036, 0, 0);
+  const bridge = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.016, 6), frameMat);
+  bridge.rotation.z = Math.PI / 2;
+  const armGeo = new THREE.CylinderGeometry(0.0035, 0.0035, 0.11, 6);
+  const armL = new THREE.Mesh(armGeo, frameMat); armL.position.set(-0.062, 0, -0.05); armL.rotation.x = Math.PI / 2;
+  const armR = new THREE.Mesh(armGeo, frameMat); armR.position.set(0.062, 0, -0.05); armR.rotation.x = Math.PI / 2;
+  g.add(lensL, lensR, bridge, armL, armR);
+  g.name = 'glassesAccessory';
+  return g;
+}
+function buildBeard() {
+  const mat = new THREE.MeshStandardMaterial({ color: 0x2a1f18, roughness: 0.9 });
+  const geo = new THREE.SphereGeometry(0.052, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.42);
+  const beard = new THREE.Mesh(geo, mat);
+  beard.rotation.x = Math.PI;   // dome opens downward, hugging the jaw/chin
+  beard.scale.set(1, 0.7, 0.85);
+  beard.name = 'beardAccessory';
+  return beard;
+}
+
+async function buildAvatar(key, tint, traits) {
+  $('loadingTag').classList.add('show');
+  try {
+    const base = await loadModel(key);
+    const clips = await loadClipLibrary();
+    captureBind(base.scene);
+    const pointClip = buildPointClip();
+
+    if (av) { av.mixer.stopAllAction(); scene.remove(av.root); }
+
+    const root = cloneSkinned(base.scene);
+    root.traverse(o => {
+      if (!o.isMesh) return;
+      o.material = Array.isArray(o.material) ? o.material.map(m => m.clone()) : o.material.clone();
+    });
+    if (tint) applyTint(root, tint);
+    scene.add(root);
+
+    let headBone = null;
+    root.traverse(o => { if (o.isBone && o.name === 'Head') headBone = o; });
+    if (headBone && traits?.hasGlasses) {
+      const glasses = buildGlasses();
+      glasses.position.set(0, 0.088, 0.115);
+      headBone.add(glasses);
+    }
+    if (headBone && traits?.hasFacialHair) {
+      const beard = buildBeard();
+      beard.position.set(0, 0.0, 0.095);
+      headBone.add(beard);
+    }
+
+    const mixer = new THREE.AnimationMixer(root);
+    const actions = {};
+    for (const clip of clips) actions[clip.name] = mixer.clipAction(clip);
+    actions['Point'] = mixer.clipAction(pointClip);
+
+    // frame it: feet on the floor line, head near the top third
+    const s = 3.1 / base.height;
+    root.scale.setScalar(s);
+    root.position.set(0, -base.minY * s - 1.75, 0);
+
+    av = { root, mixer, actions, current: null, returnTimer: null };
+    playIdle();
+    modelKey = key;
+    tintHex = tint;
+  } finally {
+    $('loadingTag').classList.remove('show');
+  }
+}
+
+function playIdle() { play('Idle', 0); }
+
+function play(label, fade = 0.25) {
+  if (!av) return;
+  const meta = ALL_CLIPS.find(c => c.label === label);
+  const name = meta?.authored ? label : meta?.file;
+  const act = av.actions[name];
+  if (!act) return;
+  clearTimeout(av.returnTimer);
+  const isIdle = label === 'Idle';
+  act.reset();
+  act.setLoop(isIdle ? THREE.LoopRepeat : THREE.LoopOnce, isIdle ? Infinity : 1);
+  act.clampWhenFinished = !isIdle;
+  if (av.current && av.current !== act) av.current.crossFadeTo(act, fade, false);
+  act.play();
+  av.current = act;
+  if (isIdle) return;
+  // hold the reaction briefly, then crossfade home — a card-game beat, not a
+  // full mocap clip (some of these run 3-9s in the source file)
+  const hold = Math.min(2.2, act.getClip().duration);
+  const startFade = Math.max(0.1, hold - 0.45);
+  av.returnTimer = setTimeout(() => {
+    const idleName = CLIP_FILES.find(c => c.label === 'Idle').file;
+    const idleAct = av.actions[idleName];
+    act.crossFadeTo(idleAct, 0.45, false);
+    idleAct.reset().play();
+    av.current = idleAct;
+  }, startFade * 1000);
+}
+
+function resetToIdle() {
+  if (!av) return;
+  clearTimeout(av.returnTimer);
+  playIdle();
+}
+
+// tint = wanted / texture's own average, so existing shading survives
+const _texAvg = new Map();
+function textureAverage(mat) {
+  if (_texAvg.has(mat.uuid)) return _texAvg.get(mat.uuid);
+  let avgColor = new THREE.Color(0.5, 0.5, 0.5);
+  const im = mat.map?.image;
+  if (im) {
+    const cv = document.createElement('canvas');
+    const n = 48; cv.width = n; cv.height = n;
+    const ctx = cv.getContext('2d', { willReadFrequently: true });
+    try {
+      ctx.drawImage(im, 0, 0, n, n);
+      const d = ctx.getImageData(0, 0, n, n).data;
+      let r = 0, g = 0, b = 0, c = 0;
+      for (let i = 0; i < d.length; i += 4) { if (d[i+3] < 200) continue; r += d[i]; g += d[i+1]; b += d[i+2]; c++; }
+      if (c) avgColor = new THREE.Color(r / c / 255, g / c / 255, b / c / 255);
+    } catch {}
+  }
+  _texAvg.set(mat.uuid, avgColor);
+  return avgColor;
+}
+function applyTint(root, hex) {
+  const want = new THREE.Color(hex);
+  root.traverse(o => {
+    if (!o.isMesh) return;
+    for (const mat of (Array.isArray(o.material) ? o.material : [o.material])) {
+      const avg = textureAverage(mat);
+      mat.color.setRGB(
+        THREE.MathUtils.clamp(want.r / Math.max(0.08, avg.r), 0.35, 1.8),
+        THREE.MathUtils.clamp(want.g / Math.max(0.08, avg.g), 0.35, 1.8),
+        THREE.MathUtils.clamp(want.b / Math.max(0.08, avg.b), 0.35, 1.8));
+    }
+  });
+}
+
+// ── render loop ──────────────────────────────────────────────────────────
+const clock = new THREE.Clock();
+function tick() {
+  requestAnimationFrame(tick);
+  const dt = clock.getDelta();
+  if (av) av.mixer.update(dt);
+  renderer.render(scene, camera);
+}
+
+// ── animation buttons ───────────────────────────────────────────────────
+function buildButtons() {
+  const mainRow = $('mainRow'), extraRow = $('extraRow');
+  mainRow.innerHTML = ''; extraRow.innerHTML = '';
+  for (const { label, icon } of CLIP_FILES) {
+    const b = document.createElement('button');
+    b.className = 'act';
+    b.innerHTML = `<span class="ic">${icon}</span><span>${label}</span>`;
+    b.onclick = () => play(label);
+    mainRow.appendChild(b);
+  }
+  for (const { label, icon } of EXTRA_CLIP_FILES) {
+    const b = document.createElement('button');
+    b.className = 'act';
+    b.innerHTML = `<span class="ic">${icon}</span><span>${label}</span>`;
+    b.onclick = () => play(label);
+    extraRow.appendChild(b);
+  }
+}
+$('resetBtn').onclick = resetToIdle;
+
+// ── premade avatars (brief item 4): same rig, same clips, just a preset tint ──
+const PREMADES = [
+  { key: 'male',   tint: '#c68a5c', label: 'A' },
+  { key: 'female', tint: '#e0b48a', label: 'B' },
+  { key: 'male',   tint: '#8a5a3c', label: 'C' },
+  { key: 'female', tint: '#f0c8a0', label: 'D' },
+  { key: 'male',   tint: '#5c4030', label: 'E' },
+  { key: 'female', tint: '#b87850', label: 'F' },
+];
+function buildPremadePicks() {
+  const wrap = $('picks');
+  wrap.innerHTML = '';
+  PREMADES.forEach((p, i) => {
+    const el = document.createElement('div');
+    el.className = 'pick';
+    el.style.background = `radial-gradient(ellipse at 50% 30%, ${p.tint}, #0c2417 75%)`;
+    el.innerHTML = `<span>${p.label}</span>`;
+    el.onclick = async () => {
+      [...wrap.children].forEach(c => c.removeAttribute('data-active'));
+      el.dataset.active = 'true';
+      await buildAvatar(p.key, p.tint);
+    };
+    wrap.appendChild(el);
+  });
+}
+
+$('usePremadeLink').onclick = () => {
+  $('premadeCard').hidden = false;
+  $('premadeCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+};
+
+// ── selfie upload + validation (brief item 1) ──────────────────────────────
+// Colour-tint personalisation, not a real generative avatar. A real
+// selfie-to-avatar vendor (Avaturn) was tried and confirmed COMPATIBLE with
+// this rig/clip library (same bone names, valid bind pose, animations
+// retarget correctly) — but their free tier forces the end user through a
+// Google/email sign-in before creating an avatar, and a real project
+// subdomain (no sign-in) is $800/month, which isn't appropriate for a
+// prototype. Reverted to this tint-only approach at the user's explicit
+// choice (2026-09-02) rather than accept either the paid tier or the
+// forced sign-in step. If a budget or a different vendor becomes available,
+// `buildAvatar(url, null)` already accepts a raw GLB URL from any source —
+// swapping the vendor back in is a small, contained change, not a rewrite.
+//
+// Four checks, each with its own message, each letting the user try another
+// photo. Heuristics tuned against synthetic test images, not a production
+// quality classifier — good enough to catch the obvious real-world failures.
+const MP_VER = '0.10.14';
+let _landmarker = null;
+async function getLandmarker() {
+  if (_landmarker) return _landmarker;
+  const vision = await import(`https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VER}`);
+  const files = await vision.FilesetResolver.forVisionTasks(
+    `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VER}/wasm`);
+  _landmarker = await vision.FaceLandmarker.createFromOptions(files, {
+    baseOptions: { modelAssetPath:
+      'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task' },
+    runningMode: 'IMAGE', numFaces: 2,   // 2, so we can tell "more than one face" apart from "one face"
+  });
+  return _landmarker;
+}
+
+function averageBrightness(img) {
+  const n = 32;
+  const cv = document.createElement('canvas'); cv.width = n; cv.height = n;
+  const ctx = cv.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0, n, n);
+  const d = ctx.getImageData(0, 0, n, n).data;
+  let sum = 0, count = 0;
+  for (let i = 0; i < d.length; i += 4) { sum += d[i] * .299 + d[i+1] * .587 + d[i+2] * .114; count++; }
+  return sum / count;
+}
+
+function faceSharpness(ctx, cx, cy, half) {
+  const n = 48;
+  const cv = document.createElement('canvas'); cv.width = n; cv.height = n;
+  const octx = cv.getContext('2d', { willReadFrequently: true });
+  octx.drawImage(ctx.canvas, Math.max(0, cx - half), Math.max(0, cy - half), half * 2, half * 2, 0, 0, n, n);
+  const d = octx.getImageData(0, 0, n, n).data;
+  const gray = new Float32Array(n * n);
+  for (let i = 0; i < n * n; i++) gray[i] = d[i*4] * .299 + d[i*4+1] * .587 + d[i*4+2] * .114;
+  let sum = 0, sumSq = 0, count = 0;
+  for (let y = 1; y < n - 1; y++) for (let x = 1; x < n - 1; x++) {
+    const i = y * n + x;
+    const lap = 4 * gray[i] - gray[i-1] - gray[i+1] - gray[i-n] - gray[i+n];
+    sum += lap; sumSq += lap * lap; count++;
+  }
+  const mean = sum / count;
+  return sumSq / count - mean * mean;
+}
+
+function medianColour(ctx, pts, r) {
+  const R_ = [], G_ = [], B_ = [];
+  for (const [px, py] of pts) {
+    const d = ctx.getImageData(Math.max(0, px - r), Math.max(0, py - r), r * 2, r * 2).data;
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] < 200) continue;
+      R_.push(d[i]); G_.push(d[i + 1]); B_.push(d[i + 2]);
+    }
+  }
+  if (!R_.length) return null;
+  const mid = a => a.sort((x, y) => x - y)[a.length >> 1];
+  return new THREE.Color(mid(R_) / 255, mid(G_) / 255, mid(B_) / 255);
+}
+
+// Glasses frames create sharp edges where bare skin has none — reuse the
+// same Laplacian-variance sharpness measure the blur check uses, but here a
+// HIGH variance in these specific small patches (nose bridge, just under
+// each eye — exactly where a frame or lens rim sits) is the signal, judged
+// relative to a same-size patch of plain cheek skin from the same photo
+// (so it adapts to that photo's own sharpness/lighting rather than a fixed
+// threshold that would misfire on a crisp photo with no glasses at all).
+function detectGlasses(ctx, at, faceHalf) {
+  const r = Math.max(6, faceHalf * 0.35);
+  const bridge = at(6), underL = at(159), underR = at(386), cheekRef = at(50);
+  const bridgeVar = faceSharpness(ctx, bridge[0], bridge[1], r);
+  const underVar = (faceSharpness(ctx, underL[0], underL[1], r) + faceSharpness(ctx, underR[0], underR[1], r)) / 2;
+  const cheekVar = Math.max(1, faceSharpness(ctx, cheekRef[0], cheekRef[1], r));
+  return bridgeVar > cheekVar * 2.5 || underVar > cheekVar * 2.5;
+}
+
+// Facial hair reads as a patch of jaw/chin/upper-lip skin significantly
+// DARKER than the already-sampled cheek/forehead skin tone — a beard or
+// moustache is textured hair over skin, not a lighting effect, so a
+// consistent darkening across several points (not just one shadowed pixel)
+// is the signal.
+function detectFacialHair(ctx, at, skin) {
+  if (!skin) return false;
+  const patch = medianColour(ctx, [at(152), at(172), at(397), at(37)], 5);
+  if (!patch) return false;
+  const lum = c => c.r * .299 + c.g * .587 + c.b * .114;
+  return lum(patch) < lum(skin) * 0.72;
+}
+
+// Real trained classifier (AgeGenderNet — a small CNN, not a hand-written
+// rule about jaw width or brow height), used only to pick a starting body;
+// the dev-panel avatar switch always overrides it, because any classifier
+// like this is a probabilistic guess, not a fact about the person.
+const FACEAPI_MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+let _faceApiReady = null;
+async function ensureFaceApi() {
+  if (_faceApiReady) return _faceApiReady;
+  _faceApiReady = Promise.all([
+    faceapi.nets.tinyFaceDetector.loadFromUri(FACEAPI_MODEL_URL),
+    faceapi.nets.ageGenderNet.loadFromUri(FACEAPI_MODEL_URL),
+  ]);
+  return _faceApiReady;
+}
+async function detectBodyType(img) {
+  try {
+    await ensureFaceApi();
+    const result = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions())
+      .withAgeAndGender();
+    if (!result) return null;
+    return { bodyType: result.gender === 'male' ? 'male' : 'female',
+             confidence: result.genderProbability };
+  } catch (err) {
+    console.error('[gender] detection failed, defaulting to male body:', err);
+    return null;   // detection is a bonus, not a blocker — fall back silently
+  }
+}
+
+async function analyseSelfie(img) {
+  const lm = await getLandmarker();
+  const res = lm.detect(img);
+  const faces = res.faceLandmarks?.length ?? 0;
+  if (faces === 0) return { error: 'No face detected. Please upload a clear, front-facing photo.' };
+  if (faces > 1) return { error: 'Multiple people detected. Please upload a photo of just yourself.' };
+
+  if (averageBrightness(img) < 55)
+    return { error: 'This photo looks too dark. Try again somewhere brighter.' };
+
+  const pts = res.faceLandmarks[0];
+  const W = img.naturalWidth, H = img.naturalHeight;
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0);
+  const at = i => [Math.round(pts[i].x * W), Math.round(pts[i].y * H)];
+
+  const nose = at(4), cheekL = at(234), cheekR = at(454);
+  const dL = Math.hypot(nose[0]-cheekL[0], nose[1]-cheekL[1]);
+  const dR = Math.hypot(nose[0]-cheekR[0], nose[1]-cheekR[1]);
+  if (Math.min(dL, dR) / Math.max(dL, dR) < 0.55)
+    return { error: 'Your face is turned too far. Please look straight at the camera.' };
+
+  const browY = at(10)[1], chinY = at(152)[1];
+  const faceHalf = Math.max(20, Math.abs(chinY - browY) * 0.6);
+  if (faceSharpness(ctx, nose[0], nose[1], faceHalf) < 8)
+    return { error: 'This photo looks blurry. Please use a sharper image.' };
+
+  const skin = medianColour(ctx, [at(50), at(280), at(101), at(330), at(9)], Math.max(3, W * 0.012));
+  const hasGlasses = detectGlasses(ctx, at, faceHalf);
+  const hasFacialHair = detectFacialHair(ctx, at, skin);
+  const body = await detectBodyType(img);
+  return { skin, hasGlasses, hasFacialHair, bodyType: body?.bodyType ?? 'male', bodyConfidence: body?.confidence };
+}
+
+let pendingImg = null;
+$('selfie').onchange = async e => {
+  const f = e.target.files?.[0];
+  if (!f) return;
+  const msg = $('uploadMsg');
+  msg.className = 'msg show';
+  msg.textContent = 'Checking your photo…';
+  $('generateBtn').disabled = true;
+  pendingImg = null;
+
+  const img = new Image();
+  img.src = URL.createObjectURL(f);
+  await new Promise(r => { img.onload = r; img.onerror = r; });
+
+  try {
+    const out = await analyseSelfie(img);
+    if (out.error) {
+      msg.className = 'msg show error';
+      msg.textContent = out.error;
+      return;
+    }
+    pendingImg = { skin: out.skin, hasGlasses: out.hasGlasses, hasFacialHair: out.hasFacialHair, bodyType: out.bodyType };
+    msg.className = 'msg show ok';
+    const traitBits = [`${out.bodyType} body`];
+    if (out.hasGlasses) traitBits.push('glasses');
+    if (out.hasFacialHair) traitBits.push('facial hair');
+    msg.textContent = `Looks good ✓ Click Generate Avatar. Detected: ${traitBits.join(', ')}.`;
+    $('generateBtn').disabled = false;
+  } catch (err) {
+    msg.className = 'msg show error';
+    msg.textContent = 'Could not analyse that photo. Try another, or pick a premade avatar below.';
+    console.error(err);
+  } finally {
+    $('selfie').value = '';
+  }
+};
+
+async function generateFromSelfie(bodyType) {
+  const msg = $('uploadMsg');
+  try {
+    await buildAvatar(bodyType, '#' + pendingImg.skin.getHexString(),
+      { hasGlasses: pendingImg.hasGlasses, hasFacialHair: pendingImg.hasFacialHair });
+    msg.className = 'msg show ok';
+    msg.textContent = 'Your avatar is ready ✓';
+    $('bodyTypeSwitch').hidden = false;
+    for (const b of $('bodyTypeSwitch').children) b.setAttribute('aria-pressed', String(b.dataset.b === bodyType));
+  } catch (err) {
+    msg.className = 'msg show error';
+    msg.textContent = 'Could not generate your avatar. Choose a premade one instead.';
+    $('premadeCard').hidden = false;
+    console.error(err);
+  }
+}
+
+$('generateBtn').onclick = () => { if (pendingImg) generateFromSelfie(pendingImg.bodyType); };
+
+// The gender classifier is a probabilistic guess (real model, not a
+// stereotype-based rule, but still imperfect) — this is the easy, always-on
+// override so a wrong guess is a one-tap fix, never a dead end.
+$('bodyTypeSwitch').onclick = e => {
+  const b = e.target.closest('button');
+  if (!b || !pendingImg) return;
+  generateFromSelfie(b.dataset.b);
+};
+
+// ── boot ─────────────────────────────────────────────────────────────────
+buildButtons();
+buildPremadePicks();
+resizeRenderer();
+requestAnimationFrame(tick);
+try { await buildAvatar('male', null); } catch (e) { showErr(e); }
+
+window.__demo = { THREE, play, resetToIdle, buildAvatar, applyTint, textureAverage,
+                   getLandmarker, averageBrightness, faceSharpness, medianColour,
+                   detectGlasses, detectFacialHair, buildGlasses, buildBeard,
+                   detectBodyType, ensureFaceApi, analyseSelfie,
+                   get av(){ return av; }, get bindQ(){ return _bindQ; } };
+</script>
+</body>
+</html>

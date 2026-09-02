@@ -1,0 +1,12 @@
+# 3D assets are NOT committed.
+#
+# Ready Player Me's animation-library licence, clause 3: "You may not
+# redistribute, sell, or otherwise transfer the Animations, in whole or in
+# part, to any third party." Committing them to a repo is redistribution.
+#
+# Run `node fetch-assets.mjs` to pull them from Ready Player Me's own repos.
+models/
+
+# scratch renders
+*.png
+!contact-sheet.png
