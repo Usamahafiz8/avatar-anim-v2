@@ -303,11 +303,7 @@
 
 <div class="card" id="animCard">
   <h2>2. Animations</h2>
-  <div class="row" id="mainRow"></div>
-  <details class="more">
-    <summary>More (dances + custom)</summary>
-    <div class="row" id="extraRow"></div>
-  </details>
+  <div class="row" id="extraRow"></div>
   <button class="btn ghost" id="resetBtn" style="margin-top:12px;">&#8634; Reset to Idle</button>
 </div>
 
@@ -347,10 +343,6 @@ const MODELS = {
 
 const CLIP_FILES = [
   { label: 'Idle',      file: 'F_Standing_Idle_001',        icon: '\u{1F610}' },
-  { label: 'Celebrate', file: 'F_Dances_005',               icon: '\u{1F64C}' },
-  { label: 'Laugh',     file: 'F_Talking_Variations_001',   icon: '\u{1F923}' },
-  { label: 'Angry',     file: 'M_Standing_Expressions_012', icon: '\u{1F620}' },
-  { label: 'Lose',      file: 'M_Standing_Expressions_007', icon: '\u{1F614}' },
 ];
 const EXTRA_CLIP_FILES = [
   { label: 'Dance 1', file: 'F_Dances_001', icon: '\u{1F57A}' },
@@ -1158,16 +1150,12 @@ function tick() {
 }
 
 // ── animation buttons ───────────────────────────────────────────────────
+// CLIP_FILES itself has no buttons any more — it's down to just Idle, which
+// is never a click target (play() only reaches it via resetToIdle/the
+// crossfade-back after a reaction). Only EXTRA_CLIP_FILES renders here.
 function buildButtons() {
-  const mainRow = $('mainRow'), extraRow = $('extraRow');
-  mainRow.innerHTML = ''; extraRow.innerHTML = '';
-  for (const { label, icon } of CLIP_FILES) {
-    const b = document.createElement('button');
-    b.className = 'act';
-    b.innerHTML = `<span class="ic">${icon}</span><span>${label}</span>`;
-    b.onclick = () => play(label);
-    mainRow.appendChild(b);
-  }
+  const extraRow = $('extraRow');
+  extraRow.innerHTML = '';
   for (const { label, icon } of EXTRA_CLIP_FILES) {
     const b = document.createElement('button');
     b.className = 'act';
