@@ -3,7 +3,14 @@
 // for the prompt/schema/parsing so the three entry points can't drift.
 // Node 20 has native fetch, so this needs no HTTP client dependency.
 
-const MODEL = 'gemini-2.0-flash';
+// gemini-2.0-flash was retired by Google (June 2026) — every call was
+// silently 404ing and falling back to local-only detection, which is why
+// selfie generations were losing AI-only traits (hair/beard/eye/lip colour,
+// hair/beard STYLE) without any visible error. gemini-3.6-flash is the
+// current stable, cost-effective multimodal model for this kind of
+// structured classification task (not the newest 3.8/3.7, which target
+// heavier agentic/coding workloads this call doesn't need).
+const MODEL = 'gemini-3.6-flash';
 const GEMINI_URL =
   `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 
