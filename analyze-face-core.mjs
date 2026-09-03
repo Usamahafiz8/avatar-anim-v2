@@ -22,8 +22,10 @@ const RESPONSE_SCHEMA = {
     hairColorHex:  { type: 'STRING', description: 'Hex color of the hair' },
     beardStyle:    { type: 'STRING', enum: ['none', 'stubble', 'goatee', 'full'] },
     beardColorHex: { type: 'STRING', description: 'Hex color of the facial hair, if any' },
+    jawWidth:      { type: 'STRING', enum: ['narrow', 'average', 'wide'] },
+    faceLength:    { type: 'STRING', enum: ['short', 'average', 'long'] },
   },
-  required: ['bodyType', 'skinToneHex', 'eyeColorHex', 'hasGlasses', 'hairStyle', 'beardStyle'],
+  required: ['bodyType', 'skinToneHex', 'eyeColorHex', 'hasGlasses', 'hairStyle', 'beardStyle', 'jawWidth', 'faceLength'],
 };
 
 const PROMPT = `Analyse the single clearest human face in this photo for a 3D avatar generator. Reply with the structured fields only, no commentary.
@@ -35,7 +37,9 @@ const PROMPT = `Analyse the single clearest human face in this photo for a 3D av
 - hairStyle: classify the head hair into exactly one of: "buzz" (very short, near scalp), "crop" (short, neat, not buzzed), "swept" (longer, styled back or to a side, covers more scalp), "default" (medium-length / uncertain / not clearly one of the above).
 - hairColorHex: the head hair colour as a hex colour. Omit if bald/no visible hair.
 - beardStyle: classify facial hair into exactly one of: "none", "stubble" (light shadow, chin/upper-lip only, short), "goatee" (chin + moustache, cheeks bare), "full" (covers jaw and cheeks). Always "none" for a visibly female presentation or a clean-shaven face.
-- beardColorHex: the facial hair colour as a hex colour. Omit if beardStyle is "none".`;
+- beardColorHex: the facial hair colour as a hex colour. Omit if beardStyle is "none".
+- jawWidth: classify the jawline/cheekbone width relative to the rest of the face into exactly one of: "narrow", "average", "wide".
+- faceLength: classify the overall face length (forehead hairline to chin, relative to face width) into exactly one of: "short", "average", "long".`;
 
 export class GeminiConfigError extends Error {}
 export class GeminiRequestError extends Error {}
