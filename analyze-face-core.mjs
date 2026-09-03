@@ -20,7 +20,7 @@ const RESPONSE_SCHEMA = {
     hasGlasses:  { type: 'BOOLEAN' },
     hairStyle:   { type: 'STRING', enum: ['default', 'buzz', 'crop', 'swept'] },
     hairColorHex:  { type: 'STRING', description: 'Hex color of the hair' },
-    beardStyle:    { type: 'STRING', enum: ['none', 'stubble', 'goatee', 'full'] },
+    beardStyle:    { type: 'STRING', enum: ['none', 'thin', 'stubble', 'goatee', 'medium', 'full'] },
     beardColorHex: { type: 'STRING', description: 'Hex color of the facial hair, if any' },
   },
   required: ['bodyType', 'skinToneHex', 'eyeColorHex', 'hasGlasses', 'hairStyle', 'beardStyle'],
@@ -34,7 +34,7 @@ const PROMPT = `Analyse the single clearest human face in this photo for a 3D av
 - hasGlasses: true if wearing glasses (any frame, including sunglasses).
 - hairStyle: classify the head hair into exactly one of: "buzz" (very short, near scalp), "crop" (short, neat, not buzzed), "swept" (longer, styled back or to a side, covers more scalp), "default" (medium-length / uncertain / not clearly one of the above).
 - hairColorHex: the head hair colour as a hex colour. Omit if bald/no visible hair.
-- beardStyle: classify facial hair into exactly one of: "none", "stubble" (light shadow, chin/upper-lip only, short), "goatee" (chin + moustache, cheeks bare), "full" (covers jaw and cheeks). Always "none" for a visibly female presentation or a clean-shaven face.
+- beardStyle: classify facial hair into exactly one of: "none" (clean-shaven), "thin" (barely-there shadow, skin clearly visible through it, no moustache), "stubble" (light shadow, chin/upper-lip only, short but slightly denser than "thin"), "goatee" (chin + moustache only, cheeks bare), "medium" (covers jaw and cheeks, neat/moderate density, skin still visible through it), "full" (covers jaw and cheeks, thick/dense, near-solid coverage, little to no skin visible through it). Always "none" for a visibly female presentation or a clean-shaven face.
 - beardColorHex: the facial hair colour as a hex colour. Omit if beardStyle is "none".`;
 
 export class GeminiConfigError extends Error {}

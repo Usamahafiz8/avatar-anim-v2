@@ -596,6 +596,20 @@ function featherAlphaMap(midStop = 0.5, key = midStop) {
 // of this ignored that taper and used a wide chin position, which put mass
 // into empty space beside the neck instead of on the actual jaw surface.
 const BEARD_STYLES = {
+  // Thin: a bare shadow of coverage — just a hint of hair at the chin point
+  // and jaw corners, no moustache. Matches a reference photo of very light,
+  // barely-there stubble (skin clearly visible through it, not a shape you'd
+  // call "a beard" so much as a few days of not shaving). Density raised
+  // from an earlier pass that was too close to fully transparent to read as
+  // anything at all — this should be faint but still visibly THERE.
+  thin: {
+    parts: [
+      { pos: [0, -0.024, 0.060], scale: [0.016, 0.015, 0.011] },   // chin tip, small
+      { pos: [0.023, -0.004, 0.077], scale: [0.019, 0.022, 0.014], rotZ: -0.25 }, // right jaw corner only
+      { pos: [-0.023, -0.004, 0.077], scale: [0.019, 0.022, 0.014], rotZ: 0.25 },// left jaw corner only
+    ],
+    density: 0.42, colorMul: 1,
+  },
   // Stubble: thin coverage hugging just the chin point and a light
   // moustache — deliberately doesn't reach the cheeks.
   stubble: {
@@ -605,7 +619,7 @@ const BEARD_STYLES = {
       { pos: [-0.026, -0.006, 0.080], scale: [0.024, 0.028, 0.018], rotZ: 0.25 },// left jaw, low
       { pos: [0, 0.016, 0.100], scale: [0.028, 0.011, 0.013] },    // light moustache
     ],
-    density: 0.34, colorMul: 0.9,
+    density: 0.48, colorMul: 0.9,
   },
   // Goatee: chin + moustache only, jaw/cheeks bare.
   goatee: {
@@ -615,21 +629,41 @@ const BEARD_STYLES = {
       { pos: [0.014, -0.010, 0.078], scale: [0.013, 0.020, 0.015] }, // jaw-to-chin strap, right
       { pos: [-0.014, -0.010, 0.078], scale: [0.013, 0.020, 0.015] },// jaw-to-chin strap, left
     ],
-    density: 0.62, colorMul: 1,
+    density: 0.70, colorMul: 1,
   },
-  // Full: the complaint was specifically "too small, doesn't cover the jaw"
-  // — this now follows the jaw's actual taper from the chin point up to
-  // near full cheek width/depth at the top, instead of one undersized blob.
+  // Medium: jaw+cheek coverage like "full" below, but visibly SMALLER/
+  // tighter to the jawline (not just a lower-density copy of the same
+  // geometry — an earlier version reused Full's exact part sizes and only
+  // dropped density, which read as "the same beard but see-through" rather
+  // than a genuinely shorter/trimmer style). Parts are scaled down and
+  // pulled closer to the jaw itself, leaving more bare cheek visible above,
+  // matching a reference photo's neat, moderate-density look.
+  medium: {
+    parts: [
+      { pos: [0, -0.029, 0.062], scale: [0.030, 0.026, 0.020] },
+      { pos: [0.026, -0.011, 0.078], scale: [0.026, 0.028, 0.021], rotZ: -0.18 },
+      { pos: [-0.026, -0.011, 0.078], scale: [0.026, 0.028, 0.021], rotZ: 0.18 },
+      { pos: [0.038, 0.001, 0.086], scale: [0.024, 0.026, 0.019], rotZ: -0.20 },
+      { pos: [-0.038, 0.001, 0.086], scale: [0.024, 0.026, 0.019], rotZ: 0.20 },
+      { pos: [0, 0.017, 0.101], scale: [0.030, 0.013, 0.015] },
+    ],
+    density: 0.66, colorMul: 1,
+  },
+  // Full: dense, thick coverage — a reference photo showed this as a solid,
+  // near-opaque mat of curly black hair with sharp visible edges along the
+  // jaw/cheek line, not a light haze. Larger parts than Medium (reaches
+  // further up the cheek, wider at the jaw) AND a higher density, so the
+  // two styles differ in actual silhouette, not just opacity.
   full: {
     parts: [
-      { pos: [0, -0.030, 0.062], scale: [0.036, 0.030, 0.024] },    // chin mass — widened in X so it overlaps the jaw pieces rather than leaving a bare sliver at the chin tip
-      { pos: [0.028, -0.012, 0.080], scale: [0.032, 0.034, 0.026], rotZ: -0.18 }, // right jaw, mid
-      { pos: [-0.028, -0.012, 0.080], scale: [0.032, 0.034, 0.026], rotZ: 0.18 },// left jaw, mid
-      { pos: [0.044, 0.006, 0.092], scale: [0.032, 0.036, 0.026], rotZ: -0.20 }, // right cheek, upper — closer in and less tilt than before so it merges with the jaw piece instead of flaring out as a separate "wing"
-      { pos: [-0.044, 0.006, 0.092], scale: [0.032, 0.036, 0.026], rotZ: 0.20 },// left cheek, upper
-      { pos: [0, 0.017, 0.102], scale: [0.034, 0.015, 0.017] },     // moustache
+      { pos: [0, -0.030, 0.062], scale: [0.038, 0.032, 0.026] },    // chin mass — widened in X so it overlaps the jaw pieces rather than leaving a bare sliver at the chin tip
+      { pos: [0.030, -0.012, 0.081], scale: [0.034, 0.036, 0.028], rotZ: -0.18 }, // right jaw, mid
+      { pos: [-0.030, -0.012, 0.081], scale: [0.034, 0.036, 0.028], rotZ: 0.18 },// left jaw, mid
+      { pos: [0.046, 0.008, 0.094], scale: [0.034, 0.038, 0.028], rotZ: -0.20 }, // right cheek, upper — reaches higher than Medium's cheek piece
+      { pos: [-0.046, 0.008, 0.094], scale: [0.034, 0.038, 0.028], rotZ: 0.20 },// left cheek, upper
+      { pos: [0, 0.017, 0.103], scale: [0.036, 0.016, 0.018] },     // moustache
     ],
-    density: 0.9, colorMul: 1,
+    density: 0.97, colorMul: 1,
   },
 };
 // A hair-noise texture reads as actual facial hair; a flat fill reads as
@@ -641,48 +675,71 @@ const BEARD_STYLES = {
 const _beardMapCache = new Map();
 function beardHairMap(density, key) {
   if (_beardMapCache.has(key)) return _beardMapCache.get(key);
-  const n = 160;
+  // Doubled from 160: at the old resolution, each 2-9px strand stroke
+  // covered a large fraction of the canvas once mapped onto the small
+  // physical accessory mesh, so the strand layer read as coarse light
+  // blotches breaking up the dark fill instead of fine hair grain — this
+  // gives the same strand code proportionally finer, denser-looking detail.
+  const n = 320;
   const cv = document.createElement('canvas'); cv.width = n; cv.height = n;
   const ctx = cv.getContext('2d');
-  // Solid dense base FIRST, scaled by density — a real beard (goatee/full)
-  // reads as near-opaque hair coverage with skin only showing through at
-  // sparse/thin styles, not a translucent haze. Drawing strand strokes over
-  // black at partial alpha (the old approach) meant even "full" left large
-  // gaps of near-0 alpha between strokes, so skin tone showed through
-  // everywhere and the whole beard read as washed-out/light — exactly the
-  // reported bug. Filling first to a density-proportional base alpha, THEN
-  // adding strand detail on top of an already-solid base, fixes that.
-  const baseAlpha = Math.round(255 * THREE.MathUtils.clamp(density * 0.95 + 0.05, 0.08, 0.99));
-  ctx.fillStyle = `rgba(0,0,0,${baseAlpha / 255})`;
+  // CRITICAL: alphaMap reads the texture's rendered RGB BRIGHTNESS, not the
+  // canvas's own alpha channel (same rule documented on featherAlphaMap
+  // above — a gradient/fill built from rgba(...,alpha) on a black RGB is
+  // invisible to it, since black RGB = 0 brightness = 0 opacity regardless
+  // of what canvas alpha says). The base fill here used to be exactly that
+  // mistake — rgba(0,0,0, densityAlpha) — so the "solid density base" it
+  // was meant to provide contributed ZERO alphaMap opacity everywhere; only
+  // the white (#fff) strand strokes drawn on top ever showed up, which is
+  // why low-strand-count styles (Thin especially) rendered as almost
+  // nothing no matter how high `density` was set. Fixed by filling with an
+  // actual grayscale RGB value (white=opaque..black=transparent) sized by
+  // density, on a fully opaque canvas — canvas alpha is only touched later,
+  // by the destination-in feather step, which is a legitimate alpha-channel
+  // operation on top of a correct base.
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, n, n);
+  const baseGray = Math.round(255 * THREE.MathUtils.clamp(density * 0.95 + 0.05, 0.08, 0.99));
+  ctx.fillStyle = `rgb(${baseGray},${baseGray},${baseGray})`;
   ctx.fillRect(0, 0, n, n);
   // seeded PRNG so the pattern is stable across rebuilds within a session
   let seed = 1337;
   const rand = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
-  ctx.strokeStyle = '#fff';
   ctx.lineCap = 'round';
-  // Strand layers now ADD texture/depth on top of the solid base rather
-  // than being the only source of coverage — darker/lighter strand streaks
-  // break up the flat fill so it still reads as hair, not a painted patch.
-  const drawStrands = (count, lenMin, lenMax, alphaMin, alphaMax, widthMin, widthMax) => {
+  // Strand layers add texture/depth on top of the solid grayscale base —
+  // BRIGHTER strokes (lighter grey/white) raise local opacity above the
+  // base, DARKER strokes lower it, so the strand pattern breaks up the flat
+  // fill into hair-like variation instead of a uniform disc, same intent as
+  // before but now actually operating on the channel alphaMap reads.
+  const drawStrands = (count, lenMin, lenMax, grayMin, grayMax, widthMin, widthMax) => {
     for (let i = 0; i < count; i++) {
       const x = rand() * n, y = rand() * n;
       const len = lenMin + rand() * (lenMax - lenMin);
       const ang = (Math.PI / 2) + (rand() - 0.5) * 1.1;   // mostly downward, some splay
       const x2 = x + Math.cos(ang) * len, y2 = y + Math.sin(ang) * len;
-      ctx.globalAlpha = alphaMin + rand() * (alphaMax - alphaMin);
+      const g = Math.round(grayMin + rand() * (grayMax - grayMin));
+      ctx.strokeStyle = `rgb(${g},${g},${g})`;
       ctx.lineWidth = widthMin + rand() * (widthMax - widthMin);
       ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x2, y2); ctx.stroke();
     }
   };
-  drawStrands(Math.round(density * 3400), 2, 5, 0.30, 0.55, 0.8, 1.4);   // fill-in strand detail
-  drawStrands(Math.round(density * 900), 5, 9, 0.15, 0.30, 0.5, 0.9);   // longer accent strands
-  ctx.globalAlpha = 1;
-  // Feather only a narrow band at the very rim (opaque core out to 0.62 of
-  // the radius) — pieces are positioned to OVERLAP each other, so keeping
-  // most of each piece's surface solidly opaque means the overlap itself
-  // hides the seam, instead of two adjacent pieces both fading toward
-  // transparent right where they meet.
-  const feather = ctx.createRadialGradient(n/2, n/2, n*0.62, n/2, n/2, n*0.86);
+  // Counts scaled ~4x for the doubled canvas area (same strands-per-unit-
+  // area as before). Grey ranges span both brighter-than-base (highlight
+  // strands) and darker-than-base (shadow/gap strands) so the texture reads
+  // as fine variation around the base density instead of only ever adding.
+  drawStrands(Math.round(density * 11000), 2, 5, baseGray * 0.5, Math.min(255, baseGray * 1.3 + 40), 0.7, 1.2);
+  drawStrands(Math.round(density * 3000), 4, 8, baseGray * 0.3, Math.min(255, baseGray * 1.15 + 25), 0.5, 0.8);
+  // Feather band width scales with density: a dense/full beard has a crisp,
+  // defined edge in reality (reference photo showed a sharp jaw/cheek
+  // boundary, not a soft haze), while a thin/sparse style should fade softly
+  // into bare skin instead of having a hard line around barely-there
+  // coverage. Pieces are positioned to OVERLAP each other, so keeping most
+  // of each piece's surface solidly opaque means the overlap itself hides
+  // the seam, instead of two adjacent pieces both fading toward transparent
+  // right where they meet.
+  const featherStart = THREE.MathUtils.lerp(0.55, 0.74, density);
+  const featherEnd = THREE.MathUtils.lerp(0.80, 0.90, density);
+  const feather = ctx.createRadialGradient(n/2, n/2, n*featherStart, n/2, n/2, n*featherEnd);
   feather.addColorStop(0, 'rgba(255,255,255,1)');
   feather.addColorStop(1, 'rgba(255,255,255,0)');
   ctx.globalCompositeOperation = 'destination-in';
@@ -697,50 +754,22 @@ function buildBeard(style = 'full', hex) {
   const cfg = BEARD_STYLES[style] ?? BEARD_STYLES.full;
   const group = new THREE.Group();
   group.name = 'beardAccessory';
-  // Darker, more saturated base colour — 0x2a1f18 read as a light warm
-  // brown once the alpha coverage above was thin; a real beard (as in the
-  // reference photos) is a much darker near-black brown, not a milk-chocolate
-  // tone, regardless of hair colour, because dense hair reads darker than a
-  // single strand's own colour. A detected/chosen beardColor still gets
-  // pulled most of the way toward that same near-black anchor (lerp, not a
-  // straight swap) so e.g. a blonde swatch shifts the hue without undoing
-  // the darkening this whole block exists for.
+  // A chosen/detected beardColor should actually be VISIBLE as that colour —
+  // black reads black, blonde reads blonde, grey reads grey. Real hair in
+  // mass does read a little darker/more saturated than a single flat strand
+  // swatch, so this only deepens the colour slightly (lerp toward black at a
+  // LOW weight), instead of the previous version's 0.35 lerp toward a fixed
+  // near-black anchor, which crushed every colour choice to nearly the same
+  // dark result regardless of what was picked. No hex chosen still falls
+  // back to a natural dark brown default, same as before.
   const tinted = hex
-    ? new THREE.Color(0x050403).lerp(new THREE.Color(hex), 0.35)
-    : new THREE.Color(0x050403);
-  //
-  // The colour alone wasn't enough, though: this scene's lights are bright
-  // (HemisphereLight intensity 2.2 + a 1.6 DirectionalLight), and a plain
-  // MeshStandardMaterial's diffuse response still reflects a lot of that
-  // ambient light even at a near-black base colour — confirmed by sampling
-  // the actual alphaMap canvas (correctly ~82-93% opaque, near-black RGB)
-  // against the rendered pixels, which came out a washed-out medium brown.
-  // A small emissive term is largely lighting-INDEPENDENT (unlike the
-  // diffuse `color`, which scales with incoming light), so it anchors a
-  // dark floor the material can't be lit past — keeping the beard reading
-  // dark under this scene's specific lighting without switching away from
-  // the same MeshStandardMaterial used for hair/glasses elsewhere.
+    ? new THREE.Color(hex).lerp(new THREE.Color(0x000000), 0.12)
+    : new THREE.Color(0x2a1912);
   const mat = new THREE.MeshStandardMaterial({
     color: tinted.multiplyScalar(cfg.colorMul),
-    emissive: new THREE.Color(0x000000),
     roughness: 1, metalness: 0,
     transparent: true, alphaMap: beardHairMap(cfg.density, 'beard-' + style),
   });
-  mat.onBeforeCompile = shader => {
-    // Push the diffuse contribution down further than `color` alone can:
-    // MeshStandardMaterial's lit output is still color * (ambient+diffuse
-    // light), and this scene's lights are bright enough that even a
-    // near-black color reflects a visibly lighter result than a real
-    // beard's near-total light absorption. Clamping the final RGB with a
-    // power curve (darkens midtones without crushing pure black or fully
-    // flattening the strand highlight variation from the alphaMap-driven
-    // texture) gets close to the reference photos' solid dark coverage
-    // without a separate unlit render pass just for this one accessory.
-    shader.fragmentShader = shader.fragmentShader.replace(
-      '#include <dithering_fragment>',
-      'gl_FragColor.rgb = pow(gl_FragColor.rgb, vec3(1.6));\n#include <dithering_fragment>'
-    );
-  };
   const geo = new THREE.SphereGeometry(1, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.5);
   for (const part of cfg.parts) {
     const mesh = new THREE.Mesh(geo, mat);
@@ -1041,8 +1070,9 @@ const LIP_PRESETS = [
   { hex: '#c98a72', label: 'Nude' },
 ];
 const BEARD_PRESETS = [
-  { key: 'none', label: 'None' }, { key: 'stubble', label: 'Stubble' },
-  { key: 'goatee', label: 'Goatee' }, { key: 'full', label: 'Full' },
+  { key: 'none', label: 'None' }, { key: 'thin', label: 'Thin' },
+  { key: 'stubble', label: 'Stubble' }, { key: 'goatee', label: 'Goatee' },
+  { key: 'medium', label: 'Medium' }, { key: 'full', label: 'Full' },
 ];
 const GLASSES_PRESETS = [
   { key: false, label: 'None' }, { key: true, label: 'On' },
@@ -1456,7 +1486,10 @@ async function analyseSelfie(img) {
   // eyeColor/hairStyle/hairColor/beardStyle/beardColor directly with no
   // extra `?? default` of its own — only this one place needs to know that
   // the local-only path simply has no opinion on those fields.
-  if (!ai) return { ...local, aiPowered: false, eyeColor: null, hairStyle: 'default', hairColor: null, beardStyle: local.hasFacialHair ? 'full' : 'none', beardColor: null };
+  // Local pixel-sampling only knows facial-hair PRESENCE, not its extent —
+  // 'stubble' is a conservative middle-ground guess rather than assuming the
+  // densest style ('full') from a plain yes/no signal.
+  if (!ai) return { ...local, aiPowered: false, eyeColor: null, hairStyle: 'default', hairColor: null, beardStyle: local.hasFacialHair ? 'stubble' : 'none', beardColor: null };
 
   // The merged hasFacialHair and beardStyle must agree on the SAME value —
   // computed once here (as `mergedHasFacialHair`, distinct from the local-
@@ -1477,7 +1510,7 @@ async function analyseSelfie(img) {
     eyeColor: nearestPreset(ai.eyeColorHex, EYE_PRESETS),
     hairStyle: HAIR_STYLE_PRESETS.some(p => p.key === ai.hairStyle) ? ai.hairStyle : 'default',
     hairColor: nearestPreset(ai.hairColorHex, HAIR_COLOR_PRESETS),
-    beardStyle: BEARD_PRESETS.some(p => p.key === ai.beardStyle) ? ai.beardStyle : (mergedHasFacialHair ? 'full' : 'none'),
+    beardStyle: BEARD_PRESETS.some(p => p.key === ai.beardStyle) ? ai.beardStyle : (mergedHasFacialHair ? 'stubble' : 'none'),
     beardColor: nearestPreset(ai.beardColorHex, HAIR_COLOR_PRESETS),
   };
 }
