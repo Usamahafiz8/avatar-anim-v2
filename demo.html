@@ -264,13 +264,19 @@
       </div>
       <div class="custSection custNote">
         <label>Not available yet</label>
-        <p>Nose shape and true eye/lip shape need a different avatar source
-          than what's free and reachable right now — this body has zero data
-          to select between for those. Jaw width and face length are real
-          geometry edits on this mesh, so those work. Hair style is a shaped
-          cap covering the original hair (a real geometry swap), not a
-          totally different mesh — it won't match a vendor-modelled
-          hairstyle's fidelity.</p>
+        <p>Nose shape, eyebrow shape, and true eye/lip shape need a different
+          avatar source than what's free and reachable right now — this body
+          has zero data to select between for those. Cheekbone width isn't a
+          separate control either: on this mesh cheekbone and jaw width are
+          the same overlapping geometry, so a second slider would just fight
+          the first one instead of giving independent control. Jaw width and
+          face length are real geometry edits on this mesh, so those work.
+          Hair style is a shaped cap covering the original hair (a real
+          geometry swap), not a totally different mesh — it won't match a
+          vendor-modelled hairstyle's fidelity. Eye and lip colour are matched
+          to your photo's actual tone rather than snapped to a swatch — the
+          highlighted swatch below is just the closest match, not what's
+          rendered.</p>
       </div>
     </div>
   </div>
@@ -629,11 +635,22 @@ const BEARD_STYLES = {
   // call "a beard" so much as a few days of not shaving). Density raised
   // from an earlier pass that was too close to fully transparent to read as
   // anything at all — this should be faint but still visibly THERE.
+  // Z-scale (3rd scale component, forward reach) increased well beyond
+  // what X/Y-scale alone would suggest for a "subtle" style — this was a
+  // pre-existing bug (verified present even before any Y-position nudge,
+  // by testing the original commit's exact numbers directly): the face
+  // surface bulges forward enough at the jaw/cheek that small pieces
+  // (Thin/Stubble's chin+jaw pieces especially) never had enough Z-depth
+  // to poke past it, so they render fully hidden behind the head mesh
+  // (confirmed by disabling depthTest, which made every "missing" piece
+  // reappear). X/Y-scale (visible footprint/size) is unchanged from the
+  // original subtle sizing — only Z grew, so the SHAPE still reads as
+  // thin/light, it just now actually clears the face surface.
   thin: {
     parts: [
-      { pos: [0, -0.015, 0.060], scale: [0.016, 0.015, 0.011] },   // chin tip, small
-      { pos: [0.023, 0.005, 0.077], scale: [0.019, 0.022, 0.014], rotZ: -0.25 }, // right jaw corner only
-      { pos: [-0.023, 0.005, 0.077], scale: [0.019, 0.022, 0.014], rotZ: 0.25 },// left jaw corner only
+      { pos: [0, -0.011, 0.065], scale: [0.016, 0.015, 0.030] },   // chin tip, small
+      { pos: [0.023, 0.009, 0.082], scale: [0.019, 0.022, 0.032], rotZ: -0.25 }, // right jaw corner only
+      { pos: [-0.023, 0.009, 0.082], scale: [0.019, 0.022, 0.032], rotZ: 0.25 },// left jaw corner only
     ],
     density: 0.42, colorMul: 1,
   },
@@ -641,20 +658,21 @@ const BEARD_STYLES = {
   // moustache — deliberately doesn't reach the cheeks.
   stubble: {
     parts: [
-      { pos: [0, -0.017, 0.062], scale: [0.020, 0.018, 0.014] },   // chin tip
-      { pos: [0.026, 0.003, 0.080], scale: [0.024, 0.028, 0.018], rotZ: -0.25 }, // right jaw, low
-      { pos: [-0.026, 0.003, 0.080], scale: [0.024, 0.028, 0.018], rotZ: 0.25 },// left jaw, low
-      { pos: [0, 0.025, 0.100], scale: [0.028, 0.011, 0.013] },    // light moustache
+      { pos: [0, -0.013, 0.067], scale: [0.020, 0.018, 0.032] },   // chin tip
+      { pos: [0.026, 0.007, 0.085], scale: [0.024, 0.028, 0.036], rotZ: -0.25 }, // right jaw, low
+      { pos: [-0.026, 0.007, 0.085], scale: [0.024, 0.028, 0.036] , rotZ: 0.25 },// left jaw, low
+      { pos: [0, 0.029, 0.105], scale: [0.028, 0.011, 0.030] },    // light moustache
     ],
     density: 0.48, colorMul: 0.9,
   },
-  // Goatee: chin + moustache only, jaw/cheeks bare.
+  // Goatee: chin + moustache only, jaw/cheeks bare. Jaw-to-chin straps are
+  // the smallest parts in the whole file, so they get the same Z-scale fix.
   goatee: {
     parts: [
-      { pos: [0, -0.019, 0.064], scale: [0.030, 0.028, 0.020] },   // chin puff (bigger than stubble's, widened to overlap the jaw straps)
-      { pos: [0, 0.024, 0.101], scale: [0.030, 0.013, 0.015] },    // moustache
-      { pos: [0.014, -0.001, 0.078], scale: [0.013, 0.020, 0.015] }, // jaw-to-chin strap, right
-      { pos: [-0.014, -0.001, 0.078], scale: [0.013, 0.020, 0.015] },// jaw-to-chin strap, left
+      { pos: [0, -0.015, 0.069], scale: [0.030, 0.028, 0.020] },   // chin puff (bigger than stubble's, widened to overlap the jaw straps)
+      { pos: [0, 0.028, 0.106], scale: [0.030, 0.013, 0.030] },    // moustache
+      { pos: [0.014, 0.003, 0.083], scale: [0.013, 0.020, 0.033] }, // jaw-to-chin strap, right
+      { pos: [-0.014, 0.003, 0.083], scale: [0.013, 0.020, 0.033] },// jaw-to-chin strap, left
     ],
     density: 0.70, colorMul: 1,
   },
@@ -667,12 +685,12 @@ const BEARD_STYLES = {
   // matching a reference photo's neat, moderate-density look.
   medium: {
     parts: [
-      { pos: [0, -0.020, 0.062], scale: [0.030, 0.026, 0.020] },
-      { pos: [0.026, -0.002, 0.078], scale: [0.026, 0.028, 0.021], rotZ: -0.18 },
-      { pos: [-0.026, -0.002, 0.078], scale: [0.026, 0.028, 0.021], rotZ: 0.18 },
-      { pos: [0.038, 0.010, 0.086], scale: [0.024, 0.026, 0.019], rotZ: -0.20 },
-      { pos: [-0.038, 0.010, 0.086], scale: [0.024, 0.026, 0.019], rotZ: 0.20 },
-      { pos: [0, 0.026, 0.101], scale: [0.030, 0.013, 0.015] },
+      { pos: [0, -0.016, 0.067], scale: [0.030, 0.026, 0.020] },
+      { pos: [0.026, 0.002, 0.083], scale: [0.026, 0.028, 0.021], rotZ: -0.18 },
+      { pos: [-0.026, 0.002, 0.083], scale: [0.026, 0.028, 0.021], rotZ: 0.18 },
+      { pos: [0.038, 0.014, 0.091], scale: [0.024, 0.026, 0.019], rotZ: -0.20 },
+      { pos: [-0.038, 0.014, 0.091], scale: [0.024, 0.026, 0.019], rotZ: 0.20 },
+      { pos: [0, 0.030, 0.106], scale: [0.030, 0.013, 0.015] },
     ],
     density: 0.66, colorMul: 1,
   },
@@ -685,15 +703,16 @@ const BEARD_STYLES = {
   // All part Y positions across every style above were nudged up by ~0.009
   // (bind-pose Y, same unit as the jaw measurements in the block comment
   // above) — a user screenshot of Full showed the beard sitting low on the
-  // neck rather than hugging the jaw/chin.
+  // neck rather than hugging the jaw/chin. A further +0.004 Y / +0.005 Z
+  // pass followed per a "move it a little more, and forward too" request.
   full: {
     parts: [
-      { pos: [0, -0.021, 0.062], scale: [0.038, 0.032, 0.026] },    // chin mass — widened in X so it overlaps the jaw pieces rather than leaving a bare sliver at the chin tip
-      { pos: [0.030, -0.003, 0.081], scale: [0.034, 0.036, 0.028], rotZ: -0.18 }, // right jaw, mid
-      { pos: [-0.030, -0.003, 0.081], scale: [0.034, 0.036, 0.028], rotZ: 0.18 },// left jaw, mid
-      { pos: [0.046, 0.017, 0.094], scale: [0.034, 0.038, 0.028], rotZ: -0.20 }, // right cheek, upper — reaches higher than Medium's cheek piece
-      { pos: [-0.046, 0.017, 0.094], scale: [0.034, 0.038, 0.028], rotZ: 0.20 },// left cheek, upper
-      { pos: [0, 0.026, 0.103], scale: [0.036, 0.016, 0.018] },     // moustache
+      { pos: [0, -0.017, 0.067], scale: [0.038, 0.032, 0.026] },    // chin mass — widened in X so it overlaps the jaw pieces rather than leaving a bare sliver at the chin tip
+      { pos: [0.030, 0.001, 0.086], scale: [0.034, 0.036, 0.028], rotZ: -0.18 }, // right jaw, mid
+      { pos: [-0.030, 0.001, 0.086], scale: [0.034, 0.036, 0.028], rotZ: 0.18 },// left jaw, mid
+      { pos: [0.046, 0.021, 0.099], scale: [0.034, 0.038, 0.028], rotZ: -0.20 }, // right cheek, upper — reaches higher than Medium's cheek piece
+      { pos: [-0.046, 0.021, 0.099], scale: [0.034, 0.038, 0.028], rotZ: 0.20 },// left cheek, upper
+      { pos: [0, 0.030, 0.108], scale: [0.036, 0.016, 0.018] },     // moustache
     ],
     density: 0.97, colorMul: 1,
   },
@@ -1217,27 +1236,28 @@ function renderSwatchRow(containerId, items, isActive, onPick, shape) {
 }
 
 function buildCustomizeUI() {
-  // Skin tone is the one colour trait that stays at the AI's full precision
-  // rather than snapping to a preset (see analyseSelfie's merge notes — skin
-  // is a continuous gradient, worth more accuracy than 5 swatches give it,
-  // unlike eye/hair/lip/beard colour which snap so the panel and the applied
-  // result always agree exactly). That means charState.tint often won't
-  // equal any swatch's hex exactly after a selfie-driven generation — with
-  // a strict equality check the panel then shows NO swatch selected at all,
-  // which reads as "nothing was detected" even though the character is
-  // correctly tinted. Highlighting the nearest swatch (display only —
-  // clicking a swatch still sets the exact preset hex, and charState.tint
-  // itself is untouched by this) fixes the "looks broken" appearance
-  // without giving up the AI's actual precision.
+  // Skin, eye, and lip colour all stay at the AI's/local sample's full
+  // precision rather than snapping to a preset (see analyseSelfie's merge
+  // notes — these are painted/tinted from an arbitrary hex, not picked off a
+  // fixed list, so there's more real accuracy available than ~5-6 swatches
+  // give, unlike hair/beard colour, which are solid material colours on
+  // accessory geometry and stay snapped). That means charState.tint/eyeColor/
+  // lipColor often won't equal any swatch's hex exactly after a selfie-driven
+  // generation — with a strict equality check the panel then shows NO swatch
+  // selected at all, which reads as "nothing was detected" even though the
+  // character is correctly coloured. Highlighting the nearest swatch (display
+  // only — clicking a swatch still sets the exact preset hex, and the
+  // charState field itself is untouched by this) fixes the "looks broken"
+  // appearance without giving up the AI's actual precision.
   renderSwatchRow('custSkin', SKIN_PRESETS, i => charState.tint && nearestPreset(charState.tint, SKIN_PRESETS) === i.hex,
     async i => { charState.tint = i.hex; await rebuildCharacter(); });
   renderSwatchRow('custHairStyle', HAIR_STYLE_PRESETS, i => charState.hairStyle === i.key,
     async i => { charState.hairStyle = i.key; await rebuildCharacter(); }, 'shape');
   renderSwatchRow('custHairColor', HAIR_COLOR_PRESETS, i => charState.hairColor === i.hex,
     async i => { charState.hairColor = i.hex; await rebuildCharacter(); });
-  renderSwatchRow('custEyes', EYE_PRESETS, i => charState.eyeColor === i.hex,
+  renderSwatchRow('custEyes', EYE_PRESETS, i => charState.eyeColor && nearestPreset(charState.eyeColor, EYE_PRESETS) === i.hex,
     async i => { charState.eyeColor = i.hex; await rebuildCharacter(); });
-  renderSwatchRow('custLips', LIP_PRESETS, i => charState.lipColor === i.hex,
+  renderSwatchRow('custLips', LIP_PRESETS, i => charState.lipColor && nearestPreset(charState.lipColor, LIP_PRESETS) === i.hex,
     async i => { charState.lipColor = i.hex; await rebuildCharacter(); });
   renderSwatchRow('custBeard', BEARD_PRESETS, i => charState.beardStyle === i.key,
     async i => { charState.beardStyle = i.key; await rebuildCharacter(); }, 'shape');
@@ -1279,14 +1299,15 @@ buildCustomizeUI._rerenderActive = () => {
       b.setAttribute('aria-pressed', String(active));
     });
   };
-  // Skin tone stays at the AI's full precision rather than snapping to a
-  // preset (see renderSwatchRow's custSkin call above for why) — `nearest`
-  // highlights the closest swatch for orientation without implying an exact
-  // match, the same fix applied there, needed again here since this is the
-  // path generateFromSelfie() actually calls after a selfie-driven build.
+  // Skin, eye, and lip colour all stay at the AI's/local sample's full
+  // precision rather than snapping to a preset (see renderSwatchRow's
+  // custSkin call above for why) — `nearest` highlights the closest swatch
+  // for orientation without implying an exact match, the same fix applied
+  // there, needed again here since this is the path generateFromSelfie()
+  // actually calls after a selfie-driven build.
   mark('custSkin', SKIN_PRESETS, 'tint', true);
-  mark('custEyes', EYE_PRESETS, 'eyeColor');
-  mark('custLips', LIP_PRESETS, 'lipColor');
+  mark('custEyes', EYE_PRESETS, 'eyeColor', true);
+  mark('custLips', LIP_PRESETS, 'lipColor', true);
   mark('custBeard', BEARD_PRESETS, 'beardStyle');
   mark('custBeardColor', HAIR_COLOR_PRESETS, 'beardColor');
   mark('custGlasses', GLASSES_PRESETS, 'hasGlasses');
@@ -1515,11 +1536,11 @@ async function detectBodyType(img) {
   }
 }
 
-// Gemini returns freeform hex (its own best-guess colour), but the Customize
-// panel only knows how to highlight one of its fixed swatches — snapping to
-// the nearest preset keeps "what the AI picked" and "what you can tweak
-// afterwards" visually the same set of options, instead of a colour with no
-// matching swatch anywhere in the panel.
+// Gemini/local sampling returns freeform hex (a best-guess actual colour),
+// but the Customize panel only offers a fixed set of swatches to click —
+// this finds which swatch to highlight as the closest match, without forcing
+// the applied colour itself onto that swatch's exact value (skin/eye/lip
+// colour keep the freeform hex; only this highlight lookup snaps).
 function nearestPreset(hex, presets) {
   if (!hex) return null;
   const c = new THREE.Color(hex);
@@ -1611,7 +1632,12 @@ async function analyseSelfie(img) {
   const hasGlasses = detectGlasses(ctx, at, faceHalf);
   const hasFacialHair = detectFacialHair(ctx, at, skin);
   const body = await detectBodyType(img);
-  const local = { skin, hasGlasses, hasFacialHair, bodyType: body?.bodyType ?? 'male', bodyConfidence: body?.confidence };
+  // Landmarks 12/15 sit ON the outer edge of the upper/lower lip (just
+  // outside the 13/14 inner seam, which risks sampling the dark gap between
+  // slightly parted lips or the teeth behind it) — small radius so a closed-
+  // mouth photo's thin lip band doesn't average in surrounding skin.
+  const lip = medianColour(ctx, [at(12), at(15)], Math.max(2, W * 0.006));
+  const local = { skin, hasGlasses, hasFacialHair, lip, bodyType: body?.bodyType ?? 'male', bodyConfidence: body?.confidence };
 
   // Gemini adds the traits the local pipeline can't reliably get from pixel
   // sampling alone (hair/beard STYLE, plus eye/hair/beard colour) — merged
@@ -1626,7 +1652,7 @@ async function analyseSelfie(img) {
   // Local pixel-sampling only knows facial-hair PRESENCE, not its extent —
   // 'stubble' is a conservative middle-ground guess rather than assuming the
   // densest style ('full') from a plain yes/no signal.
-  if (!ai) return { ...local, aiPowered: false, eyeColor: null, hairStyle: 'default', hairColor: null, beardStyle: local.hasFacialHair ? 'stubble' : 'none', beardColor: null, jawWidth: 1, faceLength: 1 };
+  if (!ai) return { ...local, aiPowered: false, eyeColor: null, hairStyle: 'default', hairColor: null, beardStyle: local.hasFacialHair ? 'stubble' : 'none', beardColor: null, lipColor: local.lip ? '#' + local.lip.getHexString() : null, jawWidth: 1, faceLength: 1 };
 
   // The merged hasFacialHair and beardStyle must agree on the SAME value —
   // computed once here (as `mergedHasFacialHair`, distinct from the local-
@@ -1644,11 +1670,19 @@ async function analyseSelfie(img) {
     skin: ai.skinToneHex ? new THREE.Color(ai.skinToneHex) : local.skin,
     hasGlasses: typeof ai.hasGlasses === 'boolean' ? ai.hasGlasses : local.hasGlasses,
     hasFacialHair: mergedHasFacialHair,
-    eyeColor: nearestPreset(ai.eyeColorHex, EYE_PRESETS),
+    // Eye and lip colour are kept at the AI's/local sample's full precision
+    // rather than snapped to a preset — same reasoning as skin tone above:
+    // both are painted onto the texture via paintFace, which takes arbitrary
+    // hex, so there's no mechanical need to bucket them onto ~6 swatches
+    // before the pixels are ever painted. The Customize panel highlights the
+    // nearest swatch for orientation (see buildCustomizeUI/_rerenderActive)
+    // without implying — or forcing — an exact match.
+    eyeColor: ai.eyeColorHex ?? null,
     hairStyle: HAIR_STYLE_PRESETS.some(p => p.key === ai.hairStyle) ? ai.hairStyle : 'default',
     hairColor: nearestPreset(ai.hairColorHex, HAIR_COLOR_PRESETS),
     beardStyle: BEARD_PRESETS.some(p => p.key === ai.beardStyle) ? ai.beardStyle : (mergedHasFacialHair ? 'stubble' : 'none'),
     beardColor: nearestPreset(ai.beardColorHex, HAIR_COLOR_PRESETS),
+    lipColor: ai.lipColorHex ?? (local.lip ? '#' + local.lip.getHexString() : null),
     // Face shape is a categorical visual judgment (like hairStyle/beardStyle
     // above) that only Gemini makes — a local landmark-ratio measurement
     // would need an absolute "average face" baseline to compare against,
@@ -1688,7 +1722,8 @@ $('selfie').onchange = async e => {
     pendingImg = {
       skin: out.skin, hasGlasses: out.hasGlasses, hasFacialHair: out.hasFacialHair, bodyType: out.bodyType,
       eyeColor: out.eyeColor, hairStyle: out.hairStyle, hairColor: out.hairColor,
-      beardStyle: out.beardStyle, beardColor: out.beardColor,
+      beardStyle: out.beardStyle, beardColor: out.beardColor, lipColor: out.lipColor,
+      jawWidth: out.jawWidth, faceLength: out.faceLength,
     };
     msg.className = 'msg show ok';
     const traitBits = [`${out.bodyType} body`];
@@ -1705,6 +1740,7 @@ $('selfie').onchange = async e => {
     if (out.hairStyle && out.hairStyle !== 'default') { traitBits.push(`${out.hairStyle} hair`); aiContributed = true; }
     if (out.hairColor) { traitBits.push('hair colour'); aiContributed = true; }
     if (out.hasFacialHair && out.beardColor) { traitBits.push('beard colour'); aiContributed = true; }
+    if (out.lipColor) { traitBits.push('lip colour'); aiContributed = true; }
     const prefix = aiContributed ? 'Looks good ✓ AI match ready.' : 'Looks good ✓';
     msg.textContent = `${prefix} Click Generate Avatar. Detected: ${traitBits.join(', ')}.`;
     $('generateBtn').disabled = false;
@@ -1736,6 +1772,7 @@ async function generateFromSelfie(bodyType) {
     charState.beardStyle = wantsBeard ? pendingImg.beardStyle : 'none';
     charState.beardColor = wantsBeard ? pendingImg.beardColor : null;
     charState.eyeColor = pendingImg.eyeColor;
+    charState.lipColor = pendingImg.lipColor;
     charState.hairStyle = pendingImg.hairStyle;
     charState.hairColor = pendingImg.hairColor;
     charState.jawWidth = pendingImg.jawWidth ?? 1;
