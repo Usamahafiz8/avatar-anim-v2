@@ -631,9 +631,9 @@ const BEARD_STYLES = {
   // anything at all — this should be faint but still visibly THERE.
   thin: {
     parts: [
-      { pos: [0, -0.024, 0.060], scale: [0.016, 0.015, 0.011] },   // chin tip, small
-      { pos: [0.023, -0.004, 0.077], scale: [0.019, 0.022, 0.014], rotZ: -0.25 }, // right jaw corner only
-      { pos: [-0.023, -0.004, 0.077], scale: [0.019, 0.022, 0.014], rotZ: 0.25 },// left jaw corner only
+      { pos: [0, -0.015, 0.060], scale: [0.016, 0.015, 0.011] },   // chin tip, small
+      { pos: [0.023, 0.005, 0.077], scale: [0.019, 0.022, 0.014], rotZ: -0.25 }, // right jaw corner only
+      { pos: [-0.023, 0.005, 0.077], scale: [0.019, 0.022, 0.014], rotZ: 0.25 },// left jaw corner only
     ],
     density: 0.42, colorMul: 1,
   },
@@ -641,20 +641,20 @@ const BEARD_STYLES = {
   // moustache — deliberately doesn't reach the cheeks.
   stubble: {
     parts: [
-      { pos: [0, -0.026, 0.062], scale: [0.020, 0.018, 0.014] },   // chin tip
-      { pos: [0.026, -0.006, 0.080], scale: [0.024, 0.028, 0.018], rotZ: -0.25 }, // right jaw, low
-      { pos: [-0.026, -0.006, 0.080], scale: [0.024, 0.028, 0.018], rotZ: 0.25 },// left jaw, low
-      { pos: [0, 0.016, 0.100], scale: [0.028, 0.011, 0.013] },    // light moustache
+      { pos: [0, -0.017, 0.062], scale: [0.020, 0.018, 0.014] },   // chin tip
+      { pos: [0.026, 0.003, 0.080], scale: [0.024, 0.028, 0.018], rotZ: -0.25 }, // right jaw, low
+      { pos: [-0.026, 0.003, 0.080], scale: [0.024, 0.028, 0.018], rotZ: 0.25 },// left jaw, low
+      { pos: [0, 0.025, 0.100], scale: [0.028, 0.011, 0.013] },    // light moustache
     ],
     density: 0.48, colorMul: 0.9,
   },
   // Goatee: chin + moustache only, jaw/cheeks bare.
   goatee: {
     parts: [
-      { pos: [0, -0.028, 0.064], scale: [0.030, 0.028, 0.020] },   // chin puff (bigger than stubble's, widened to overlap the jaw straps)
-      { pos: [0, 0.015, 0.101], scale: [0.030, 0.013, 0.015] },    // moustache
-      { pos: [0.014, -0.010, 0.078], scale: [0.013, 0.020, 0.015] }, // jaw-to-chin strap, right
-      { pos: [-0.014, -0.010, 0.078], scale: [0.013, 0.020, 0.015] },// jaw-to-chin strap, left
+      { pos: [0, -0.019, 0.064], scale: [0.030, 0.028, 0.020] },   // chin puff (bigger than stubble's, widened to overlap the jaw straps)
+      { pos: [0, 0.024, 0.101], scale: [0.030, 0.013, 0.015] },    // moustache
+      { pos: [0.014, -0.001, 0.078], scale: [0.013, 0.020, 0.015] }, // jaw-to-chin strap, right
+      { pos: [-0.014, -0.001, 0.078], scale: [0.013, 0.020, 0.015] },// jaw-to-chin strap, left
     ],
     density: 0.70, colorMul: 1,
   },
@@ -667,12 +667,12 @@ const BEARD_STYLES = {
   // matching a reference photo's neat, moderate-density look.
   medium: {
     parts: [
-      { pos: [0, -0.029, 0.062], scale: [0.030, 0.026, 0.020] },
-      { pos: [0.026, -0.011, 0.078], scale: [0.026, 0.028, 0.021], rotZ: -0.18 },
-      { pos: [-0.026, -0.011, 0.078], scale: [0.026, 0.028, 0.021], rotZ: 0.18 },
-      { pos: [0.038, 0.001, 0.086], scale: [0.024, 0.026, 0.019], rotZ: -0.20 },
-      { pos: [-0.038, 0.001, 0.086], scale: [0.024, 0.026, 0.019], rotZ: 0.20 },
-      { pos: [0, 0.017, 0.101], scale: [0.030, 0.013, 0.015] },
+      { pos: [0, -0.020, 0.062], scale: [0.030, 0.026, 0.020] },
+      { pos: [0.026, -0.002, 0.078], scale: [0.026, 0.028, 0.021], rotZ: -0.18 },
+      { pos: [-0.026, -0.002, 0.078], scale: [0.026, 0.028, 0.021], rotZ: 0.18 },
+      { pos: [0.038, 0.010, 0.086], scale: [0.024, 0.026, 0.019], rotZ: -0.20 },
+      { pos: [-0.038, 0.010, 0.086], scale: [0.024, 0.026, 0.019], rotZ: 0.20 },
+      { pos: [0, 0.026, 0.101], scale: [0.030, 0.013, 0.015] },
     ],
     density: 0.66, colorMul: 1,
   },
@@ -681,14 +681,19 @@ const BEARD_STYLES = {
   // jaw/cheek line, not a light haze. Larger parts than Medium (reaches
   // further up the cheek, wider at the jaw) AND a higher density, so the
   // two styles differ in actual silhouette, not just opacity.
+  //
+  // All part Y positions across every style above were nudged up by ~0.009
+  // (bind-pose Y, same unit as the jaw measurements in the block comment
+  // above) — a user screenshot of Full showed the beard sitting low on the
+  // neck rather than hugging the jaw/chin.
   full: {
     parts: [
-      { pos: [0, -0.030, 0.062], scale: [0.038, 0.032, 0.026] },    // chin mass — widened in X so it overlaps the jaw pieces rather than leaving a bare sliver at the chin tip
-      { pos: [0.030, -0.012, 0.081], scale: [0.034, 0.036, 0.028], rotZ: -0.18 }, // right jaw, mid
-      { pos: [-0.030, -0.012, 0.081], scale: [0.034, 0.036, 0.028], rotZ: 0.18 },// left jaw, mid
-      { pos: [0.046, 0.008, 0.094], scale: [0.034, 0.038, 0.028], rotZ: -0.20 }, // right cheek, upper — reaches higher than Medium's cheek piece
-      { pos: [-0.046, 0.008, 0.094], scale: [0.034, 0.038, 0.028], rotZ: 0.20 },// left cheek, upper
-      { pos: [0, 0.017, 0.103], scale: [0.036, 0.016, 0.018] },     // moustache
+      { pos: [0, -0.021, 0.062], scale: [0.038, 0.032, 0.026] },    // chin mass — widened in X so it overlaps the jaw pieces rather than leaving a bare sliver at the chin tip
+      { pos: [0.030, -0.003, 0.081], scale: [0.034, 0.036, 0.028], rotZ: -0.18 }, // right jaw, mid
+      { pos: [-0.030, -0.003, 0.081], scale: [0.034, 0.036, 0.028], rotZ: 0.18 },// left jaw, mid
+      { pos: [0.046, 0.017, 0.094], scale: [0.034, 0.038, 0.028], rotZ: -0.20 }, // right cheek, upper — reaches higher than Medium's cheek piece
+      { pos: [-0.046, 0.017, 0.094], scale: [0.034, 0.038, 0.028], rotZ: 0.20 },// left cheek, upper
+      { pos: [0, 0.026, 0.103], scale: [0.036, 0.016, 0.018] },     // moustache
     ],
     density: 0.97, colorMul: 1,
   },
