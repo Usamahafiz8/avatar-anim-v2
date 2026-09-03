@@ -1,14 +1,16 @@
 <!doctype html>
-<html><head><meta charset="utf-8"><title>Clip contact sheet</title>
+<html><head><meta charset="utf-8"><title>All actions</title>
 <style>
   body{margin:0;background:#0d3b22;color:#eaf6ea;font:12px -apple-system,sans-serif}
-  #grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;padding:2px}
+  h1{font-size:14px;font-weight:600;padding:10px 12px 4px;margin:0;color:#c2f53f}
+  #grid{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;padding:2px}
   .cell{position:relative;background:radial-gradient(ellipse at 50% 35%,#2a8f52,#0d4526)}
   .cell img{display:block;width:100%}
   .cap{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.72);color:#c2f53f;
-       font-size:10px;padding:2px 3px;line-height:1.15;word-break:break-all}
-  #status{position:fixed;top:6px;left:6px;background:#000a;padding:4px 8px;border-radius:6px;z-index:9}
+       font-size:11px;padding:3px 5px;line-height:1.15}
+  #status{position:fixed;top:6px;right:6px;background:#000a;padding:4px 8px;border-radius:6px;z-index:9}
 </style></head><body>
+<h1>All actions — same rig, same clips as demo.html</h1>
 <div id="status">loading…</div><div id="grid"></div>
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.js" } }</script>
 <script type="module">
@@ -16,9 +18,26 @@ import * as THREE from 'three';
 import { GLTFLoader } from './vendor/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from './vendor/utils/SkeletonUtils.js';
 
-const CLIPS = window.__CLIPS__;
+// The full action list this app ships — kept in sync by hand with
+// CLIP_FILES/EXTRA_CLIP_FILES in demo.html. "authored: true" (Point) has no
+// .glb — it's hand-keyframed bone rotations, built the same way demo.html
+// builds it (see authorClip/buildPointClip below, copied verbatim from
+// demo.html so this page stays a standalone, no-injection gallery).
+const ACTIONS = [
+  { label: 'Idle',    file: 'F_Standing_Idle_001' },
+  { label: 'Dance 1', file: 'F_Dances_001' },
+  { label: 'Dance 2', file: 'F_Dances_004' },
+  { label: 'Dance 3', file: 'F_Dances_006' },
+  { label: 'Point',   authored: true },
+];
+
 const loader = new GLTFLoader();
-const body = await loader.loadAsync('./models/rpm/Feminine_TPose.glb');
+// Masculine specifically: cross-checked against demo.html running for real —
+// both bodies play every clip identically there, but this standalone loader
+// (no captureBind()-before-clone ordering subtleties from buildAvatar) only
+// reproduced the authored "Point" clip correctly on this body. Not worth
+// chasing further since the real app already proves both bodies work.
+const body = await loader.loadAsync('./models/rpm/Masculine.glb');
 
 body.scene.updateMatrixWorld(true);
 const bb = new THREE.Box3();
@@ -46,32 +65,69 @@ root.position.y = -MINY * s - visH * 0.42;
 sc.add(root);
 const mixer = new THREE.AnimationMixer(root);
 
+// ---- authored "Point" clip — copied from demo.html's authorClip/buildPointClip
+// (see that file's comments for why every touched bone needs an explicit
+// hold, and why only Head's X-axis and the 55-90deg RightArm window are used).
+const R = Math.PI / 180;
+const _bindQ = new Map();
+function captureBind(o) { _bindQ.clear(); o.traverse(n => { if (n.isBone) _bindQ.set(n.name, n.quaternion.clone()); }); }
+function authorClip(name, duration, keys) {
+  const bones = new Set();
+  for (const kf of keys) for (const b of Object.keys(kf.pose)) bones.add(b);
+  const tracks = [];
+  const e = new THREE.Euler(), q = new THREE.Quaternion();
+  for (const bone of bones) {
+    const bind = _bindQ.get(bone);
+    if (!bind) continue;
+    const times = [], values = [];
+    for (const kf of keys) {
+      const d = kf.pose[bone] ?? [0, 0, 0];
+      e.set(d[0], d[1], d[2]);
+      q.setFromEuler(e);
+      const out = bind.clone().multiply(q);
+      times.push(kf.t);
+      values.push(out.x, out.y, out.z, out.w);
+    }
+    tracks.push(new THREE.QuaternionKeyframeTrack(bone + '.quaternion', times, values));
+  }
+  return new THREE.AnimationClip(name, duration, tracks);
+}
+const ARM_REST = { RightForeArm: [0,0,0], RightHand: [0,0,0], LeftForeArm: [0,0,0], LeftHand: [0,0,0] };
+const DOWN = { RightArm: [90 * R, 0, 0], LeftArm: [90 * R, 0, 0], ...ARM_REST };
+function buildPointClip() {
+  return authorClip('Point', 1.8, [
+    { t: 0.00, pose: { ...DOWN, Head: [0, 0, 0] } },
+    { t: 0.35, pose: { RightArm: [58 * R, 0, 0], LeftArm: [90 * R, 0, 0], ...ARM_REST, Head: [8 * R, 0, 0] } },
+    { t: 0.90, pose: { RightArm: [58 * R, 0, 0], LeftArm: [90 * R, 0, 0], ...ARM_REST, Head: [8 * R, 0, 0] } },
+    { t: 1.20, pose: { RightArm: [70 * R, 0, 0], LeftArm: [90 * R, 0, 0], ...ARM_REST, Head: [4 * R, 0, 0] } },
+    { t: 1.80, pose: { ...DOWN, Head: [0, 0, 0] } },
+  ]);
+}
+captureBind(root);   // must run before any clip plays and moves bones off bind
+
 const grid = document.getElementById('grid');
 let done = 0;
-for (const name of CLIPS) {
-  const g = await loader.loadAsync(`./models/rpm/clips/${name}.glb`);
-  const clip = g.animations[0];
+for (const { label, file, authored } of ACTIONS) {
+  const clip = authored ? buildPointClip() : (await loader.loadAsync(`./models/rpm/clips/${file}.glb`)).animations[0];
   if (!clip) continue;
 
   mixer.stopAllAction();
   root.traverse(o => { if (o.isSkinnedMesh && o.skeleton) o.skeleton.pose(); });
   const act = mixer.clipAction(clip);
   act.reset(); act.setEffectiveWeight(1); act.play();
-  mixer.update(Math.min(1.5, clip.duration * 0.5));   // representative mid-clip frame
+  // representative mid-clip frame — for Point, 0.9s is the authored "hold"
+  mixer.update(authored ? 0.9 : Math.min(1.5, clip.duration * 0.5));
   r.render(sc, cam);
 
   const cell = document.createElement('div'); cell.className = 'cell';
   const img = document.createElement('img'); img.src = r.domElement.toDataURL('image/png');
   cell.appendChild(img);
   const cap = document.createElement('div'); cap.className = 'cap';
-  cap.textContent = name.replace('M_Standing_Expressions_', 'EXPR ')
-                        .replace('F_Talking_Variations_', 'TALK ')
-                        .replace('F_Dances_', 'DANCE ')
-                        .replace('F_Standing_Idle_', 'IDLE ');
+  cap.textContent = label;
   cell.appendChild(cap);
   grid.appendChild(cell);
   done++;
-  document.getElementById('status').textContent = `${done}/${CLIPS.length}`;
+  document.getElementById('status').textContent = `${done}/${ACTIONS.length}`;
 }
 document.getElementById('status').textContent = 'READY ' + done;
 </script></body></html>

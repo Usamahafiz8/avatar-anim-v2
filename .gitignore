@@ -13,5 +13,5 @@ models/
 
 # local Gemini API key for `node serve.mjs` (Vercel/Netlify set
 # GEMINI_API_KEY as a dashboard env var instead, not a committed file)
-.env
-.env.local
+config.bat
+node_modules

@@ -1,0 +1,133 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>All expression clips</title>
+<style>
+  body{margin:0;background:#0d3b22;color:#eaf6ea;font:12px -apple-system,sans-serif}
+  h1{font-size:14px;font-weight:600;padding:10px 12px 4px;margin:0;color:#c2f53f}
+  p.sub{margin:0 12px 8px;color:#9fd9a8;font-size:11px}
+  #grid{display:grid;grid-template-columns:repeat(6,1fr);gap:2px;padding:2px}
+  .cell{position:relative;background:radial-gradient(ellipse at 50% 35%,#2a8f52,#0d4526)}
+  .cell img{display:block;width:100%}
+  .cap{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.72);color:#c2f53f;
+       font-size:10px;padding:3px 4px;line-height:1.15;word-break:break-all}
+  #status{position:fixed;top:6px;right:6px;background:#000a;padding:4px 8px;border-radius:6px;z-index:9}
+</style></head><body>
+<h1>All expression clips — readyplayerme/animation-library, masculine/glb/expression</h1>
+<p class="sub">Every clip in that source folder, downloaded via <code>node fetch-gallery-assets.mjs</code>, looping live. Not used by demo.html — this is a browse-all reference page.</p>
+<div id="status">loading…</div><div id="grid"></div>
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.js" } }</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from './vendor/loaders/GLTFLoader.js';
+import { clone as cloneSkinned } from './vendor/utils/SkeletonUtils.js';
+
+// Every file in readyplayerme/animation-library's masculine/glb/expression
+// folder (mirrored under models/rpm/gallery/expression/ — see
+// fetch-gallery-assets.mjs). Despite the folder path this set mixes F_/M_
+// Talking Variations with M_ Standing Expressions — that's how the source
+// repo organizes it, not a mistake here.
+const NAMES = [
+  'F_Talking_Variations_001','F_Talking_Variations_002','F_Talking_Variations_003',
+  'F_Talking_Variations_004','F_Talking_Variations_005','F_Talking_Variations_006',
+  'M_Standing_Expressions_001','M_Standing_Expressions_002','M_Standing_Expressions_004',
+  'M_Standing_Expressions_005','M_Standing_Expressions_006','M_Standing_Expressions_007',
+  'M_Standing_Expressions_008','M_Standing_Expressions_009','M_Standing_Expressions_010',
+  'M_Standing_Expressions_011','M_Standing_Expressions_012','M_Standing_Expressions_013',
+  'M_Standing_Expressions_014','M_Standing_Expressions_015','M_Standing_Expressions_016',
+  'M_Standing_Expressions_017','M_Standing_Expressions_018',
+  'M_Talking_Variations_001','M_Talking_Variations_002','M_Talking_Variations_003',
+  'M_Talking_Variations_004','M_Talking_Variations_005','M_Talking_Variations_006',
+  'M_Talking_Variations_007','M_Talking_Variations_008','M_Talking_Variations_009',
+  'M_Talking_Variations_010',
+];
+
+const loader = new GLTFLoader();
+const body = await loader.loadAsync('./models/rpm/Masculine.glb');
+
+body.scene.updateMatrixWorld(true);
+const bb = new THREE.Box3();
+body.scene.traverse(o => { if (o.isSkinnedMesh) { o.computeBoundingBox(); bb.union(o.boundingBox.clone().applyMatrix4(o.matrixWorld)); } });
+const H = bb.max.y - bb.min.y, MINY = bb.min.y;
+
+// ONE renderer shared by every cell — a live WebGL context each would blow
+// past the browser's ~16-context limit, and the earliest cells would
+// silently go blank. Instead we round-robin: each animation frame, re-render
+// a handful of cells into this one canvas and copy the pixels out.
+const W = 180, HT = 240;
+const r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+r.setPixelRatio(1); r.setSize(W, HT, false);
+r.outputColorSpace = THREE.SRGBColorSpace;
+
+const sc = new THREE.Scene();
+sc.add(new THREE.HemisphereLight(0xffffff, 0x2f6b45, 2.2));
+const k = new THREE.DirectionalLight(0xffffff, 1.5); k.position.set(2, 4, 4); sc.add(k);
+const cam = new THREE.PerspectiveCamera(32, W / HT, .1, 50);
+cam.position.set(0, 0, 5.2);
+
+const root = cloneSkinned(body.scene);
+const visH = 2 * 5.2 * Math.tan(THREE.MathUtils.degToRad(16));
+const s = (visH * 0.84) / H;
+root.scale.setScalar(s);
+root.position.y = -MINY * s - visH * 0.42;
+sc.add(root);
+const mixer = new THREE.AnimationMixer(root);
+
+// ---- build the grid up front, then load every clip before animating ------
+const grid = document.getElementById('grid');
+const imgs = [], clips = [], elapsed = [];
+for (const name of NAMES) {
+  const cell = document.createElement('div'); cell.className = 'cell';
+  const img = document.createElement('img');
+  cell.appendChild(img);
+  const cap = document.createElement('div'); cap.className = 'cap';
+  cap.textContent = name.replace('_Standing_Expressions_', ' EXPR ').replace('_Talking_Variations_', ' TALK ');
+  cell.appendChild(cap);
+  grid.appendChild(cell);
+  imgs.push(img);
+}
+
+let done = 0;
+for (let i = 0; i < NAMES.length; i++) {
+  try {
+    const g = await loader.loadAsync(`./models/rpm/gallery/expression/${NAMES[i]}.glb`);
+    clips.push(g.animations[0] ?? null);
+  } catch (e) {
+    console.error(NAMES[i], e);
+    clips.push(null);
+  }
+  elapsed.push(0);
+  done++;
+  document.getElementById('status').textContent = `loading ${done}/${NAMES.length}`;
+}
+document.getElementById('status').textContent = 'READY ' + clips.filter(Boolean).length;
+
+// ---- render one clip at its current elapsed time into its cell's <img> ---
+function renderCell(i) {
+  const clip = clips[i];
+  if (!clip) { imgs[i].alt = 'failed to load'; return; }
+  mixer.stopAllAction();
+  root.traverse(o => { if (o.isSkinnedMesh && o.skeleton) o.skeleton.pose(); });
+  const act = mixer.clipAction(clip);
+  act.reset();
+  act.time = elapsed[i] % clip.duration;
+  act.play();
+  mixer.update(0);   // apply act.time with zero advance — a direct seek
+  r.render(sc, cam);
+  imgs[i].src = r.domElement.toDataURL('image/png');
+}
+
+// ---- the shared playback loop ---------------------------------------------
+// Every clip's own elapsed time advances by real wall-clock delta every
+// frame (cheap), but only BATCH cells actually get re-rendered+re-encoded
+// per frame (expensive) — round-robin, so with 33 clips and BATCH=3 each
+// cell refreshes ~5.5x/sec, plenty to read as "playing" for mocap this size.
+const BATCH = 3;
+let cursor = 0, last = performance.now();
+function tick(now) {
+  const dt = Math.min(0.1, (now - last) / 1000);
+  last = now;
+  for (let i = 0; i < clips.length; i++) if (clips[i]) elapsed[i] += dt;
+  for (let n = 0; n < BATCH; n++) { renderCell(cursor); cursor = (cursor + 1) % NAMES.length; }
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+</script></body></html>
