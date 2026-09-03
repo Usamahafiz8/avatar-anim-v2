@@ -1046,10 +1046,16 @@ async function buildAvatar(key, opts = {}) {
     }
     // A chosen hair COLOUR needs actual hair geometry to show up on — the
     // baked hair can't be recoloured in place (see buildHairCap's notes).
-    // Defaulting to 'crop' here means picking a colour swatch always shows a
-    // visible result immediately, instead of silently doing nothing while
-    // Hair Style is still "Default" (the bug this replaces).
-    const effectiveHairStyle = hairStyle && hairStyle !== 'default' ? hairStyle : (hairColor ? 'crop' : null);
+    // Defaulting to 'swept' here (the fullest, most scalp-covering preset)
+    // means picking a colour swatch, or a selfie read that came back
+    // 'default' (Gemini's own "medium-length/uncertain" bucket — see its
+    // prompt in analyze-face-core.mjs — NOT "no hair"), always shows a
+    // visible, reasonably full result immediately, instead of silently
+    // keeping the base mesh's short baked-in hair while Hair Style is still
+    // "Default" (the bug this replaces — a selfie of someone with long or
+    // full hair was rendering with the model's default short cut because
+    // 'default' was being read as "add nothing").
+    const effectiveHairStyle = hairStyle && hairStyle !== 'default' ? hairStyle : (hairColor ? 'swept' : null);
     if (headBone && effectiveHairStyle) {
       headBone.add(buildHairCap(effectiveHairStyle, hairColor ? new THREE.Color(hairColor).getHex() : undefined));
     }
@@ -1486,26 +1492,45 @@ function medianColour(ctx, pts, r) {
 // relative to a same-size patch of plain cheek skin from the same photo
 // (so it adapts to that photo's own sharpness/lighting rather than a fixed
 // threshold that would misfire on a crisp photo with no glasses at all).
+// This is only ever a FALLBACK for when the Gemini call is unavailable (see
+// analyseSelfie) — a single noisy patch (glare, a stray hair strand, a
+// wrinkle) can trip a bridge-only or under-eye-only reading, so BOTH the
+// bridge and the under-eye average must independently clear the bar (frames
+// bridge the nose AND sit under both eyes; skin texture alone rarely does
+// both at once), and the bar itself is raised from 2.5x to 3.5x to cut down
+// on false positives from ordinary lighting/texture noise.
 function detectGlasses(ctx, at, faceHalf) {
   const r = Math.max(6, faceHalf * 0.35);
   const bridge = at(6), underL = at(159), underR = at(386), cheekRef = at(50);
   const bridgeVar = faceSharpness(ctx, bridge[0], bridge[1], r);
   const underVar = (faceSharpness(ctx, underL[0], underL[1], r) + faceSharpness(ctx, underR[0], underR[1], r)) / 2;
   const cheekVar = Math.max(1, faceSharpness(ctx, cheekRef[0], cheekRef[1], r));
-  return bridgeVar > cheekVar * 2.5 || underVar > cheekVar * 2.5;
+  return bridgeVar > cheekVar * 3.5 && underVar > cheekVar * 3.5;
 }
 
 // Facial hair reads as a patch of jaw/chin/upper-lip skin significantly
 // DARKER than the already-sampled cheek/forehead skin tone — a beard or
 // moustache is textured hair over skin, not a lighting effect, so a
 // consistent darkening across several points (not just one shadowed pixel)
-// is the signal.
+// is the signal. This is only a FALLBACK for when the Gemini call is
+// unavailable (see analyseSelfie) — ordinary under-chin/jaw shadow from
+// overhead or side lighting can darken this patch on a clean-shaven face
+// too, so the threshold is dropped from 0.72x to 0.6x (needs a much bigger
+// gap from skin tone before this fires) and at least 3 of the 4 sampled
+// points must individually clear it, not just the blended median, so one
+// deeply-shadowed point (e.g. under the chin) can't outvote three that read
+// as bare skin.
 function detectFacialHair(ctx, at, skin) {
   if (!skin) return false;
-  const patch = medianColour(ctx, [at(152), at(172), at(397), at(37)], 5);
-  if (!patch) return false;
+  const pts = [at(152), at(172), at(397), at(37)];
   const lum = c => c.r * .299 + c.g * .587 + c.b * .114;
-  return lum(patch) < lum(skin) * 0.72;
+  const skinLum = lum(skin);
+  let darkCount = 0;
+  for (const p of pts) {
+    const patch = medianColour(ctx, [p], 5);
+    if (patch && lum(patch) < skinLum * 0.6) darkCount++;
+  }
+  return darkCount >= 3;
 }
 
 // Real trained classifier (AgeGenderNet — a small CNN, not a hand-written
@@ -1649,10 +1674,15 @@ async function analyseSelfie(img) {
   // eyeColor/hairStyle/hairColor/beardStyle/beardColor directly with no
   // extra `?? default` of its own — only this one place needs to know that
   // the local-only path simply has no opinion on those fields.
-  // Local pixel-sampling only knows facial-hair PRESENCE, not its extent —
-  // 'stubble' is a conservative middle-ground guess rather than assuming the
-  // densest style ('full') from a plain yes/no signal.
-  if (!ai) return { ...local, aiPowered: false, eyeColor: null, hairStyle: 'default', hairColor: null, beardStyle: local.hasFacialHair ? 'stubble' : 'none', beardColor: null, lipColor: local.lip ? '#' + local.lip.getHexString() : null, jawWidth: 1, faceLength: 1 };
+  // Local pixel-sampling only knows facial-hair PRESENCE, not its extent, and
+  // even that presence read (detectFacialHair) is a coarse shadow/luminance
+  // heuristic prone to false positives from ordinary lighting — a false
+  // NEGATIVE here (missing a real beard) is a minor miss the user can fix in
+  // Customize, but a false POSITIVE (a beard painted on a clean-shaven face)
+  // reads as a broken/creepy result. So the no-AI fallback stays with 'none'
+  // and only trusts the local signal enough to preselect the lightest visible
+  // style ('thin') rather than guessing a denser 'stubble'/'full'.
+  if (!ai) return { ...local, aiPowered: false, eyeColor: null, hairStyle: 'default', hairColor: null, beardStyle: local.hasFacialHair ? 'thin' : 'none', beardColor: null, lipColor: local.lip ? '#' + local.lip.getHexString() : null, jawWidth: 1, faceLength: 1 };
 
   // The merged hasFacialHair and beardStyle must agree on the SAME value —
   // computed once here (as `mergedHasFacialHair`, distinct from the local-
@@ -1680,7 +1710,7 @@ async function analyseSelfie(img) {
     eyeColor: ai.eyeColorHex ?? null,
     hairStyle: HAIR_STYLE_PRESETS.some(p => p.key === ai.hairStyle) ? ai.hairStyle : 'default',
     hairColor: nearestPreset(ai.hairColorHex, HAIR_COLOR_PRESETS),
-    beardStyle: BEARD_PRESETS.some(p => p.key === ai.beardStyle) ? ai.beardStyle : (mergedHasFacialHair ? 'stubble' : 'none'),
+    beardStyle: BEARD_PRESETS.some(p => p.key === ai.beardStyle) ? ai.beardStyle : (mergedHasFacialHair ? 'thin' : 'none'),
     beardColor: nearestPreset(ai.beardColorHex, HAIR_COLOR_PRESETS),
     lipColor: ai.lipColorHex ?? (local.lip ? '#' + local.lip.getHexString() : null),
     // Face shape is a categorical visual judgment (like hairStyle/beardStyle
