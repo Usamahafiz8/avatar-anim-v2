@@ -1076,7 +1076,19 @@ function renderSwatchRow(containerId, items, isActive, onPick, shape) {
 }
 
 function buildCustomizeUI() {
-  renderSwatchRow('custSkin', SKIN_PRESETS, i => charState.tint === i.hex,
+  // Skin tone is the one colour trait that stays at the AI's full precision
+  // rather than snapping to a preset (see analyseSelfie's merge notes — skin
+  // is a continuous gradient, worth more accuracy than 5 swatches give it,
+  // unlike eye/hair/lip/beard colour which snap so the panel and the applied
+  // result always agree exactly). That means charState.tint often won't
+  // equal any swatch's hex exactly after a selfie-driven generation — with
+  // a strict equality check the panel then shows NO swatch selected at all,
+  // which reads as "nothing was detected" even though the character is
+  // correctly tinted. Highlighting the nearest swatch (display only —
+  // clicking a swatch still sets the exact preset hex, and charState.tint
+  // itself is untouched by this) fixes the "looks broken" appearance
+  // without giving up the AI's actual precision.
+  renderSwatchRow('custSkin', SKIN_PRESETS, i => charState.tint && nearestPreset(charState.tint, SKIN_PRESETS) === i.hex,
     async i => { charState.tint = i.hex; await rebuildCharacter(); });
   renderSwatchRow('custHairStyle', HAIR_STYLE_PRESETS, i => charState.hairStyle === i.key,
     async i => { charState.hairStyle = i.key; await rebuildCharacter(); }, 'shape');
@@ -1103,15 +1115,22 @@ function syncCustomizeUI() {
 // scratch (buildCustomizeUI already redraws fully; this keeps them in sync
 // after an external change like the selfie flow or premade picker)
 buildCustomizeUI._rerenderActive = () => {
-  const mark = (id, items, key) => {
+  const mark = (id, items, key, nearest) => {
     const wrap = $(id); if (!wrap) return;
+    const nearestHex = nearest && charState[key] ? nearestPreset(charState[key], items) : null;
     [...wrap.children].forEach((b, idx) => {
       const item = items[idx];
-      const active = 'hex' in item ? charState[key] === item.hex : charState[key] === item.key;
+      const active = nearest ? item.hex === nearestHex
+        : ('hex' in item ? charState[key] === item.hex : charState[key] === item.key);
       b.setAttribute('aria-pressed', String(active));
     });
   };
-  mark('custSkin', SKIN_PRESETS, 'tint');
+  // Skin tone stays at the AI's full precision rather than snapping to a
+  // preset (see renderSwatchRow's custSkin call above for why) — `nearest`
+  // highlights the closest swatch for orientation without implying an exact
+  // match, the same fix applied there, needed again here since this is the
+  // path generateFromSelfie() actually calls after a selfie-driven build.
+  mark('custSkin', SKIN_PRESETS, 'tint', true);
   mark('custEyes', EYE_PRESETS, 'eyeColor');
   mark('custLips', LIP_PRESETS, 'lipColor');
   mark('custBeard', BEARD_PRESETS, 'beardStyle');
@@ -1573,7 +1592,7 @@ window.__demo = { THREE, play, resetToIdle, buildAvatar, applyTint, textureAvera
                    getLandmarker, averageBrightness, faceSharpness, medianColour,
                    detectGlasses, detectFacialHair, buildGlasses, buildBeard, buildHairCap, paintFace,
                    detectBodyType, ensureFaceApi, analyseSelfie, analyzeWithGemini, nearestPreset,
-                   rebuildCharacter, charState,
+                   rebuildCharacter, charState, syncCustomizeUI,
                    get av(){ return av; }, get bindQ(){ return _bindQ; } };
 </script>
 </body>
