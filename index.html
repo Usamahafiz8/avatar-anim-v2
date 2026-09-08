@@ -474,13 +474,13 @@
         </div>
 
         <div class="grp" id="grp-size">
-          <label>Character size <b id="v-size2">26%</b></label>
-          <input type="range" id="opt-size" min="0.14" max="0.55" step="0.01" value="0.26" style="width:100%">
+          <label>Character size <b id="v-size2">18%</b></label>
+          <input type="range" id="opt-size" min="0.14" max="0.55" step="0.01" value="0.18" style="width:100%">
         </div>
 
         <div class="grp">
-          <label>Head size <b id="v-head">1.00x</b></label>
-          <input type="range" id="opt-head" min="1" max="3.2" step="0.05" value="1" style="width:100%">
+          <label>Head size <b id="v-head">1.25x</b></label>
+          <input type="range" id="opt-head" min="1" max="3.2" step="0.05" value="1.25" style="width:100%">
         </div>
 
         <div class="grp" id="grp-face" hidden>
@@ -489,13 +489,13 @@
         </div>
 
         <div class="grp">
-          <label>Resting opacity <b id="v-alpha">0%</b></label>
-          <input type="range" id="opt-alpha" min="0" max="1" step="0.05" value="0" style="width:100%">
+          <label>Resting opacity <b id="v-alpha">90%</b></label>
+          <input type="range" id="opt-alpha" min="0" max="1" step="0.05" value="0.9" style="width:100%">
         </div>
 
         <div class="grp">
-          <label>Fade out <b id="v-fade">0.45s</b></label>
-          <input type="range" id="opt-fade" min="0.1" max="1.2" step="0.05" value="0.45" style="width:100%">
+          <label>Fade out <b id="v-fade">0.80s</b></label>
+          <input type="range" id="opt-fade" min="0.1" max="1.2" step="0.05" value="0.8" style="width:100%">
         </div>
 
         <div class="grp"><label>Options</label>
@@ -832,7 +832,7 @@ scene.add(shadowPlane);
 // Character height as a fraction of the felt. 0.19 matches Miyagi's reference
 // screenshot, but the face is unreadable at that size, so it is now a live
 // slider — see the note on facial expressions in the README.
-let TARGET_FRACTION = 0.26;   // a touch above the reference 19% so the face still reads
+let TARGET_FRACTION = 0.18;   // default tuned via the dev panel
 
 // Framing. 'full' = the reference: whole body, feet on the deck. 'portrait'
 // anchors the HEAD instead, so the slider controls how big the FACE is rather
@@ -852,7 +852,7 @@ const HEAD_Y      = 0.26;      // where the head sits on screen, from the top
 // Animation clips carry scale tracks for every bone, so the mixer overwrites
 // this on each update; it has to be re-applied AFTER mixer.update() every frame
 // (see applyHeadScale in the render loop), not once at build time.
-let HEAD_SCALE = 1.0;         // natural proportions; the chibi inflation made it worse, not better
+let HEAD_SCALE = 1.25;        // default tuned via the dev panel
 const FOOT_LINE = 0.465;
 let targetWorldHeight = .72, viewH = 3.78, viewW = 2.2, onScreenPct = 19;
 
@@ -1068,7 +1068,7 @@ function playClip(av, name, fade = .25, once = false) {
 // the last FADE_HOME seconds, so it eases into idle right as the clip ends
 // rather than being truncated mid-motion.
 const DEFAULT_HOLD = 2.2;  // fallback only, for a reaction with no clip duration to read
-let FADE_HOME     = 0.45;  // crossfade back into idle
+let FADE_HOME     = 0.80;  // crossfade back into idle; default tuned via the dev panel
 const FADE_IN     = 0.22;
 
 function triggerAll(label) {
@@ -1141,7 +1141,7 @@ function applyHeadScale(a) { if (a.headBone) a.headBone.scale.setScalar(HEAD_SCA
 // 2026) — the avatar stays fully visible at idle instead; still a live
 // toggle in the ?dev=1 panel if this comes back later.
 let FADE_OUT_IDLE = false;
-let IDLE_ALPHA = 0;          // what it settles to between reactions, only when FADE_OUT_IDLE is on
+let IDLE_ALPHA = 0.90;       // what it settles to between reactions, only when FADE_OUT_IDLE is on
 
 function setAlpha(a, v) {
   for (const m of a.meshes) {
