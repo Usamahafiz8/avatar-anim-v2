@@ -367,6 +367,7 @@
   .cz-swatch-btn.shape[aria-pressed="true"] { background: var(--lime); color: #10240a; border-color: var(--lime); }
   .cz-swatch-btn.shape[aria-pressed="true"]::after { content: none; }
   .cz-swatch-btn.shape:disabled { opacity: .35; cursor: not-allowed; }
+  .cz-swatch-btn.shape.emoji { font-size: 19px; text-align: center; padding: 0; }
   .cz-sliderRow { margin-top: 14px; } .cz-sliderRow:first-child { margin-top: 0; }
   .cz-sliderHead { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; }
   .cz-sliderHead .val { color: var(--gold); font-variant-numeric: tabular-nums; }
@@ -2035,8 +2036,10 @@ function renderLoadoutUI() {
     if (label === 'Idle') continue; // idle is the resting loop, not a taunt to send
     const equipped = LOADOUT.includes(label);
     const b = document.createElement('button');
-    b.className = 'cz-swatch-btn shape';
-    b.textContent = `${icon} ${label}`;
+    b.className = 'cz-swatch-btn shape emoji';
+    b.textContent = icon;
+    b.title = label;
+    b.setAttribute('aria-label', label);
     b.setAttribute('aria-pressed', String(equipped));
     b.disabled = !equipped && LOADOUT.length >= LOADOUT_MAX;
     b.onclick = () => {
