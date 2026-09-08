@@ -325,18 +325,29 @@
   .cz-group { margin-top: 16px; } .cz-group:first-child { margin-top: 0; }
   .cz-grouphead { font-size: 10px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase;
     color: var(--gold); margin: 0 0 11px; }
-  .cz-section { margin-top: 13px; } .cz-section:first-child { margin-top: 0; }
-  .cz-label-row { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 9px; }
+
+  /* Each property (Skin Tone, Hair Style, ...) is a grid CELL, not a stacked
+     block — 1 column on a narrow phone, 2 on anything wider than ~480px, so
+     the panel actually uses the space instead of one long ragged column. */
+  .cz-propGrid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+  @media (min-width: 480px) { .cz-propGrid { grid-template-columns: 1fr 1fr; } }
+  .cz-section { min-width: 0; }
+  .cz-label-row { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 9px; gap: 8px; }
   .cz-label { font-size: 11.5px; font-weight: 700; color: var(--text); }
-  .cz-current { font-size: 11px; color: var(--muted); }
-  .cz-swatchRow { display: flex; flex-wrap: wrap; gap: 10px; }
+  .cz-current { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Swatches sit on a real grid too — fixed-size cells for colour dots so
+     rows line up cleanly instead of flex-wrap's ragged left edge; flexible
+     cells for the wider text pills (hair/beard style). */
+  .cz-swatchRow { display: grid; grid-template-columns: repeat(auto-fill, 38px); gap: 9px; }
+  .cz-swatchRow.shapes { grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); }
   .cz-swatch-btn { width: 38px; height: 38px; border-radius: 50%; border: 2px solid rgba(255,255,255,.14);
     cursor: pointer; padding: 0; position: relative; }
   .cz-swatch-btn[aria-pressed="true"] { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(217,178,92,.35); }
   .cz-swatch-btn[aria-pressed="true"]::after { content: '✓'; position: absolute; inset: 0; display: flex;
     align-items: center; justify-content: center; color: #fff; font-size: 14px; text-shadow: 0 1px 3px rgba(0,0,0,.9); }
-  .cz-swatch-btn.shape { border-radius: 9px; width: auto; height: 34px; padding: 0 12px; background: rgba(255,255,255,.05);
-    color: var(--text); font: inherit; font-size: 11.5px; font-weight: 700; border: 1px solid var(--line); }
+  .cz-swatch-btn.shape { border-radius: 9px; width: 100%; height: 34px; padding: 0 8px; background: rgba(255,255,255,.05);
+    color: var(--text); font: inherit; font-size: 11px; font-weight: 700; border: 1px solid var(--line); }
   .cz-swatch-btn.shape[aria-pressed="true"] { background: var(--lime); color: #10240a; border-color: var(--lime); }
   .cz-swatch-btn.shape[aria-pressed="true"]::after { content: none; }
   .cz-sliderRow { margin-top: 14px; } .cz-sliderRow:first-child { margin-top: 0; }
@@ -517,8 +528,9 @@
     </div>
     <div id="customizeBody">
 
-      <p class="cz-intro">Take or upload a selfie and we'll shape your avatar to match you —
-        skin tone, hair, eyes and more. Your avatar keeps playing behind this panel, so you can watch it change.</p>
+      <p class="cz-intro">Take or upload a selfie and we'll match your avatar's skin tone, glasses and
+        facial hair automatically. Use Fine-tune details below for hair, eye colour and face shape.
+        Your avatar keeps playing behind this panel, so you can watch it change.</p>
 
       <div class="cz-card" id="uploadCard">
         <h2 class="cz-h2"><span class="cz-step">1</span>Your photo</h2>
@@ -559,25 +571,27 @@
 
           <div class="cz-group">
             <div class="cz-grouphead">Appearance</div>
-            <div class="cz-section">
-              <div class="cz-label-row"><span class="cz-label">Skin Tone</span></div>
-              <div class="cz-swatchRow" id="custSkin"></div>
-            </div>
-            <div class="cz-section">
-              <div class="cz-label-row"><span class="cz-label">Hair Style</span></div>
-              <div class="cz-swatchRow" id="custHairStyle"></div>
-            </div>
-            <div class="cz-section">
-              <div class="cz-label-row"><span class="cz-label">Hair Color</span></div>
-              <div class="cz-swatchRow" id="custHairColor"></div>
-            </div>
-            <div class="cz-section">
-              <div class="cz-label-row"><span class="cz-label">Eye Color</span></div>
-              <div class="cz-swatchRow" id="custEyes"></div>
-            </div>
-            <div class="cz-section">
-              <div class="cz-label-row"><span class="cz-label">Lip Color</span></div>
-              <div class="cz-swatchRow" id="custLips"></div>
+            <div class="cz-propGrid">
+              <div class="cz-section">
+                <div class="cz-label-row"><span class="cz-label">Skin Tone</span></div>
+                <div class="cz-swatchRow" id="custSkin"></div>
+              </div>
+              <div class="cz-section">
+                <div class="cz-label-row"><span class="cz-label">Hair Style</span></div>
+                <div class="cz-swatchRow shapes" id="custHairStyle"></div>
+              </div>
+              <div class="cz-section" id="custHairColorSection">
+                <div class="cz-label-row"><span class="cz-label">Hair Color</span></div>
+                <div class="cz-swatchRow" id="custHairColor"></div>
+              </div>
+              <div class="cz-section">
+                <div class="cz-label-row"><span class="cz-label">Eye Color</span></div>
+                <div class="cz-swatchRow" id="custEyes"></div>
+              </div>
+              <div class="cz-section">
+                <div class="cz-label-row"><span class="cz-label">Lip Color</span></div>
+                <div class="cz-swatchRow" id="custLips"></div>
+              </div>
             </div>
           </div>
 
@@ -595,13 +609,15 @@
 
           <div class="cz-group" id="custBeardSection">
             <div class="cz-grouphead">Facial Hair</div>
-            <div class="cz-section">
-              <div class="cz-label-row"><span class="cz-label">Beard Style</span></div>
-              <div class="cz-swatchRow" id="custBeard"></div>
-            </div>
-            <div class="cz-section">
-              <div class="cz-label-row"><span class="cz-label">Beard Color</span></div>
-              <div class="cz-swatchRow" id="custBeardColor"></div>
+            <div class="cz-propGrid">
+              <div class="cz-section">
+                <div class="cz-label-row"><span class="cz-label">Beard Style</span></div>
+                <div class="cz-swatchRow shapes" id="custBeard"></div>
+              </div>
+              <div class="cz-section">
+                <div class="cz-label-row"><span class="cz-label">Beard Color</span></div>
+                <div class="cz-swatchRow" id="custBeardColor"></div>
+              </div>
             </div>
           </div>
 
@@ -1671,9 +1687,21 @@ function buildBeard(style = 'full', hex) {
 // (scattered across the texture atlas in disconnected pieces), but it CAN be
 // fully covered by an opaque accessory.
 const HAIR_STYLES = {
+  // Same tight-scalp footprint as buzz, but rendered in the SKIN tone
+  // instead of a hair colour (see applyPersonalization) — this body has no
+  // way to hide or recolour its baked-in hair directly (see paintFace's
+  // notes), so "bald" is simulated by covering it with a skin-coloured cap
+  // rather than an actual hairless head.
+  bald: { r: 0.098, seg: [16, 12], theta: 0.40, y: 0.117, z: -0.005 },
   buzz: { r: 0.100, seg: [16, 12], theta: 0.42, y: 0.115, z: -0.005 },
   crop: { r: 0.110, seg: [16, 12], theta: 0.65, y: 0.100, z: -0.010 },
   swept:{ r: 0.112, seg: [16, 12], theta: 0.68, y: 0.098, z: -0.020 },
+  // Bigger/lower coverage reads as more hair reaching toward the shoulders —
+  // still just a dome (no actual hanging strands), the honest limit of a
+  // one-piece accessory on a body with no dedicated hair geometry.
+  long: { r: 0.118, seg: [18, 14], theta: 0.85, y: 0.085, z: -0.025 },
+  // Larger radius, rounder silhouette for a fuller, voluminous look.
+  afro: { r: 0.145, seg: [20, 16], theta: 0.60, y: 0.125, z: -0.010 },
 };
 const HAIR_COLOR_DEFAULT = 0x2a1a12;
 function buildHairCap(style = 'crop', hex) {
@@ -1709,22 +1737,24 @@ function applyPersonalization(root, bodyKey, headBone) {
   // defaults to the fullest preset rather than silently doing nothing.
   const effectiveHairStyle = charState.hairStyle && charState.hairStyle !== 'default'
     ? charState.hairStyle : (charState.hairColor ? 'swept' : null);
-  if (effectiveHairStyle) {
+  if (effectiveHairStyle === 'bald') {
+    // Bald ignores hairColor entirely — it's covering the head in the
+    // person's own skin tone, not a hair colour, so it reads as bare scalp.
+    const skinHex = charState.tint ? new THREE.Color(charState.tint).getHex() : undefined;
+    headBone.add(buildHairCap('bald', skinHex));
+  } else if (effectiveHairStyle) {
     headBone.add(buildHairCap(effectiveHairStyle, charState.hairColor ? new THREE.Color(charState.hairColor).getHex() : undefined));
   }
 }
 
 // ---- face detection / analysis -------------------------------------------
-// Two tiers, both feeding the same charState:
-//  1. Local, offline, always on: MediaPipe FaceLandmarker (landmarks/multi-
-//     face validation) + Canvas pixel sampling (skin tone, glasses, facial-
-//     hair presence) + face-api.js AgeGenderNet (body type).
-//  2. OpenAI vision (gpt-4o-mini), progressive enhancement only: adds hair/
-//     beard STYLE and eye/hair/beard COLOUR, which pixel sampling alone
-//     can't reliably read. Proxied through serve.mjs/api/analyze-face.js so
-//     the API key never reaches this client code. If not configured, or the
-//     call fails, this returns null and analyseSelfie() falls back to tier 1
-//     only — detection is a bonus, never a blocker.
+// Entirely local and offline, no server, no API key: MediaPipe FaceLandmarker
+// (landmarks/multi-face validation) + Canvas pixel sampling (skin/lip
+// colour, glasses, facial-hair presence) + face-api.js AgeGenderNet (body
+// type). Deliberately no vision-model tier — this project has no backend —
+// so eye colour, hair/beard STYLE, and jaw-width/face-length aren't
+// auto-detected; they default to neutral and are there to set by hand in
+// Fine-tune details instead.
 const MP_VER = '0.10.14';
 let _landmarker = null;
 async function getLandmarker() {
@@ -1845,37 +1875,14 @@ function nearestPreset(hex, presets) {
   }
   return best;
 }
-const JAW_WIDTH_MAP = { narrow: 0.9, average: 1, wide: 1.12 };
-const FACE_LENGTH_MAP = { short: 0.92, average: 1, long: 1.1 };
-function imageToBase64Jpeg(img, maxSide = 640) {
-  const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
-  const w = Math.max(1, Math.round(img.naturalWidth * scale));
-  const h = Math.max(1, Math.round(img.naturalHeight * scale));
-  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
-  cv.getContext('2d').drawImage(img, 0, 0, w, h);
-  const dataUrl = cv.toDataURL('image/jpeg', 0.85);
-  return dataUrl.slice(dataUrl.indexOf(',') + 1);
-}
-// Richer trait read (hair/beard STYLE, hair/beard/eye COLOUR) via a server
-// proxy to OpenAI's vision API — see analyze-face-core.mjs for the prompt,
-// and api/analyze-face.js / netlify/functions/analyze-face.js / serve.mjs
-// for the three equivalent server-side entry points, none of which expose
-// the API key to this client code.
-async function analyzeWithGemini(img) {
-  try {
-    const image = imageToBase64Jpeg(img);
-    const res = await fetch('/api/analyze-face', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ image, mimeType: 'image/jpeg' }),
-    });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch (err) {
-    console.warn('[ai] trait detection unavailable, using local detection only:', err);
-    return null;
-  }
-}
+// Local-only trait detection: MediaPipe FaceLandmarker (landmarks/pose/
+// multi-face validation) + Canvas pixel sampling (skin/lip colour, glasses,
+// facial-hair presence) + face-api.js AgeGenderNet (body type). No network
+// call, no server, no API key — this project intentionally has no backend.
+// That means no eye colour, no hair/beard STYLE, and no jaw-width/face-length
+// read (those needed a vision model to judge, not just pixel sampling) — the
+// avatar keeps its default hair/face shape unless the Customize panel is
+// used to set them by hand.
 async function analyseSelfie(img) {
   const lm = await getLandmarker();
   const res = lm.detect(img);
@@ -1904,34 +1911,19 @@ async function analyseSelfie(img) {
   if (faceSharpness(ctx, nose[0], nose[1], faceHalf) < 8)
     return { error: 'This photo looks blurry. Please use a sharper image.' };
 
-  const aiPromise = analyzeWithGemini(img);
-
   const skin = medianColour(ctx, [at(50), at(280), at(101), at(330), at(9)], Math.max(3, W * 0.012));
   const hasGlasses = detectGlasses(ctx, at, faceHalf);
   const hasFacialHair = detectFacialHair(ctx, at, skin);
   const body = await detectBodyType(img);
   const lip = medianColour(ctx, [at(12), at(15)], Math.max(2, W * 0.006));
-  const local = { skin, hasGlasses, hasFacialHair, lip, bodyType: body?.bodyType ?? 'male', bodyConfidence: body?.confidence };
 
-  const ai = await aiPromise;
-  if (!ai) return { ...local, aiPowered: false, eyeColor: null, hairStyle: 'default', hairColor: null, beardStyle: local.hasFacialHair ? 'thin' : 'none', beardColor: null, lipColor: local.lip ? '#' + local.lip.getHexString() : null, jawWidth: 1, faceLength: 1 };
-
-  const mergedHasFacialHair = ai.beardStyle ? ai.beardStyle !== 'none' : local.hasFacialHair;
   return {
-    ...local,
-    aiPowered: true,
-    bodyType: ai.bodyType ?? local.bodyType,
-    skin: ai.skinToneHex ? new THREE.Color(ai.skinToneHex) : local.skin,
-    hasGlasses: typeof ai.hasGlasses === 'boolean' ? ai.hasGlasses : local.hasGlasses,
-    hasFacialHair: mergedHasFacialHair,
-    eyeColor: ai.eyeColorHex ?? null,
-    hairStyle: HAIR_STYLE_PRESETS.some(p => p.key === ai.hairStyle) ? ai.hairStyle : 'default',
-    hairColor: nearestPreset(ai.hairColorHex, HAIR_COLOR_PRESETS),
-    beardStyle: BEARD_PRESETS.some(p => p.key === ai.beardStyle) ? ai.beardStyle : (mergedHasFacialHair ? 'thin' : 'none'),
-    beardColor: nearestPreset(ai.beardColorHex, HAIR_COLOR_PRESETS),
-    lipColor: ai.lipColorHex ?? (local.lip ? '#' + local.lip.getHexString() : null),
-    jawWidth: JAW_WIDTH_MAP[ai.jawWidth] ?? 1,
-    faceLength: FACE_LENGTH_MAP[ai.faceLength] ?? 1,
+    skin, hasGlasses, hasFacialHair,
+    bodyType: body?.bodyType ?? 'male', bodyConfidence: body?.confidence,
+    eyeColor: null, hairStyle: 'default', hairColor: null,
+    beardStyle: hasFacialHair ? 'thin' : 'none', beardColor: null,
+    lipColor: lip ? '#' + lip.getHexString() : null,
+    jawWidth: 1, faceLength: 1,
   };
 }
 
@@ -1957,8 +1949,10 @@ const BEARD_PRESETS = [
   { key: 'medium', label: 'Medium' }, { key: 'full', label: 'Full' },
 ];
 const HAIR_STYLE_PRESETS = [
-  { key: 'default', label: 'Default' }, { key: 'buzz', label: 'Buzz' },
-  { key: 'crop', label: 'Crop' }, { key: 'swept', label: 'Swept back' },
+  { key: 'default', label: 'Default' }, { key: 'bald', label: 'Bald' },
+  { key: 'buzz', label: 'Buzz' }, { key: 'crop', label: 'Crop' },
+  { key: 'swept', label: 'Swept back' }, { key: 'long', label: 'Long' },
+  { key: 'afro', label: 'Afro' },
 ];
 const HAIR_COLOR_PRESETS = [
   { hex: '#1a1410', label: 'Black' }, { hex: '#3b2a1a', label: 'Brown' },
@@ -2009,6 +2003,10 @@ function buildCustomizeUI() {
 function syncCustomizeUI() {
   for (const b of $('custBodySeg').children) b.setAttribute('aria-pressed', String(b.dataset.b === charState.bodyType));
   $('custBeardSection').hidden = charState.bodyType !== 'male';
+  // Bald covers the head in skin tone, not a hair colour (see
+  // applyPersonalization) — a colour swatch that visibly does nothing is
+  // worse than no swatch, same reasoning as hiding Beard for a non-male body.
+  $('custHairColorSection').hidden = charState.hairStyle === 'bald';
   buildCustomizeUI._rerenderActive?.();
 }
 // Re-render just the pressed state without rebuilding every button from
@@ -2117,15 +2115,10 @@ async function handleSelfieImage(img) {
     msg.className = 'cz-msg show ok';
     const traitBits = [`${out.bodyType} body`];
     if (out.hasGlasses) traitBits.push('glasses');
-    if (out.hasFacialHair) traitBits.push(out.beardStyle && out.beardStyle !== 'full' ? `${out.beardStyle} facial hair` : 'facial hair');
-    let aiContributed = false;
-    if (out.eyeColor) { traitBits.push('eye colour'); aiContributed = true; }
-    if (out.hairStyle && out.hairStyle !== 'default') { traitBits.push(`${out.hairStyle} hair`); aiContributed = true; }
-    if (out.hairColor) { traitBits.push('hair colour'); aiContributed = true; }
-    if (out.hasFacialHair && out.beardColor) { traitBits.push('beard colour'); aiContributed = true; }
-    if (out.lipColor) { traitBits.push('lip colour'); aiContributed = true; }
-    const prefix = aiContributed ? 'Looks good ✓ AI match ready.' : 'Looks good ✓';
-    msg.textContent = `${prefix} Click Generate Avatar. Detected: ${traitBits.join(', ')}.`;
+    if (out.hasFacialHair) traitBits.push('facial hair');
+    if (out.lipColor) traitBits.push('lip colour');
+    msg.textContent = `Looks good ✓ Click Generate Avatar. Detected: ${traitBits.join(', ')}. ` +
+      `Hair, eye colour and face shape aren't auto-detected — set those in Fine-tune details below if you'd like.`;
     $('generateBtn').disabled = false;
   } catch (err) {
     msg.className = 'cz-msg show error';
