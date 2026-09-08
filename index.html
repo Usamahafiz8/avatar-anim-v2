@@ -1348,9 +1348,16 @@ function setBodyType(next) {
 // "nothing's there" / "nothing changed" even when a trait update applied
 // correctly. Called both the moment the panel opens (so there's something to
 // look at right away) and after every rebuild (so a change stays visible).
+//
+// This is a one-off NUDGE of each avatar's current alpha, not a change to
+// IDLE_ALPHA/FADE_OUT_IDLE themselves — those are the dev panel's own
+// "Resting opacity" / "Fade out after reaction" controls, and silently
+// overriding them here would make that checkbox lie about what's actually
+// happening (exactly the bug reported: it stayed checked while fade-out had
+// quietly stopped doing anything). Leaving them untouched means the very
+// next reaction-and-return still fades the avatar exactly the way the dev
+// panel says it should.
 function keepAvatarVisible() {
-  IDLE_ALPHA = 1;
-  $('opt-alpha').value = '1'; $('v-alpha').textContent = '100%';
   avatars.forEach(a => { a.alphaTarget = 1; a.alpha = 1; setAlpha(a, 1); });
   invalidate();
 }
