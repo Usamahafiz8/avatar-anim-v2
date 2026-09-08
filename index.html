@@ -742,6 +742,19 @@ const CLIP_FILES = [
   { label: 'Dance 1',    file: 'F_Dances_001',               icon: '\u{1F57A}' },
   { label: 'Dance 2',    file: 'F_Dances_004',               icon: '\u{1F483}' },
   { label: 'Dance 3',    file: 'F_Dances_006',               icon: '\u{1F3B6}' },
+  // Sourced from the sibling character-customizer project's models/anim/
+  // rpm-*.glb (same RPM rig). Fills the 'Celebrate' reaction that
+  // GAME_EVENTS/FACES/EFFECTS already referenced but had no clip for (see
+  // fetch-assets.mjs: the RPM library's own Celebrate/Laugh clips were
+  // dropped for not reading as their label). Verified each of these on the
+  // real rig (screenshot sequences, not just "it loaded") before wiring in:
+  // 'rpm-laughing' and 'rpm-clapping' failed the same way (near-zero body
+  // motion / no actual clap) and were left out rather than shipped anyway.
+  { label: 'Celebrate',  file: 'rpm-celebrate',              icon: '\u{1F389}' },
+  { label: 'Hip Hop',    file: 'rpm-hiphop',                 icon: '\u{1F57A}' },
+  { label: 'Twerk',      file: 'rpm-twerk',                  icon: '\u{1F483}' },
+  { label: 'Wave',       file: 'rpm-wave',                   icon: '\u{1F44B}' },
+  { label: 'Walk',       file: 'rpm-walk',                   icon: '\u{1F6B6}' },
 ];
 
 // The player's equipped taunts. Limits PLAYER-SENT reactions only — game events
@@ -793,6 +806,10 @@ const FACES = {
   'Angry':         { smile: 0,   open: .15, squint: .45 },
   'Laugh':         { smile: 1,   open: .55, squint: .35 },
   'Lose':          { smile: 0,   open: .08, squint: .50 },
+  'Hip Hop':       { smile: .55, open: .10, squint: 0   },
+  'Twerk':         { smile: .50, open: .08, squint: 0   },
+  'Wave':          { smile: .60, open: 0,   squint: 0   },
+  'Walk':          { smile: .15, open: 0,   squint: 0   },
 };
 
 const CLIP_MAP = {
