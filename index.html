@@ -37,6 +37,7 @@
     width: 38px; height: 38px; flex: 0 0 auto; border-radius: 11px; border: none;
     background: #1b1f1c; color: #fff; font-size: 16px; display: grid; place-items: center; cursor: pointer;
   }
+  .icon-btn[hidden] { display: none; }
   #score {
     background: #1b1f1c; border-radius: 10px; padding: 5px 10px; font-size: 10.5px;
     line-height: 1.35; font-weight: 700; letter-spacing: .04em; flex: 0 0 auto;
@@ -122,19 +123,30 @@
     border: none; cursor: pointer;
   }
 
-  /* ===== dev overlay — a side drawer sliding in from the LEFT, mirroring
-     the Customize drawer's own pattern on the right so the two never
-     compete for the same edge. ===== */
-  #dev { position: fixed; inset: 0; z-index: 35; display: none; background: rgba(2,10,5,.35); }
+  /* ===== dev overlay — a bottom sheet on phones, a right-side drawer on
+     anything wide enough to have room beside the felt (matches the
+     Customize drawer's own responsive behaviour, same breakpoint). ===== */
+  #dev {
+    position: fixed; inset: 0; z-index: 35; display: none; background: rgba(2,10,5,.35);
+    flex-direction: column; justify-content: flex-end;
+  }
   #dev:not(.off) { display: flex; }
   #dev.off { display: none; }
   #devBackdrop { position: absolute; inset: 0; }
   #devDrawer {
-    position: relative; width: min(88vw, 320px); height: 100%;
+    position: relative; width: 100%; max-height: 78vh;
     background: linear-gradient(180deg, #0e1f14, #081209);
-    border: 1px solid var(--line); border-left: none;
-    border-radius: 0 22px 22px 0; box-shadow: 14px 0 40px rgba(0,0,0,.6);
+    border: 1px solid var(--line); border-bottom: none;
+    border-radius: 22px 22px 0 0; box-shadow: 0 -14px 40px rgba(0,0,0,.6);
     display: flex; flex-direction: column;
+  }
+  @media (min-width: 700px) {
+    #dev { flex-direction: row; }
+    #devDrawer {
+      width: min(360px, 90vw); height: 100%; max-height: none;
+      border-bottom: 1px solid var(--line); border-right: none;
+      border-radius: 22px 0 0 22px; box-shadow: -14px 0 40px rgba(0,0,0,.6);
+    }
   }
   #devBar {
     flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between;
@@ -238,19 +250,27 @@
   #err { position: fixed; left: 10px; right: 10px; top: 30%; padding: 13px; background: #3a0f0f; border: 1px solid #ff6b6b;
          border-radius: 10px; display: none; white-space: pre-wrap; font-family: ui-monospace, Menlo, monospace; font-size: 11px; z-index: 70; }
 
-  /* ===== customize overlay — a side drawer sliding in from the RIGHT
-     (mirrors the Settings drawer on the left, see #devDrawer). Tapping the
-     dimmed backdrop closes it, same as the Settings drawer. ===== */
+  /* ===== customize overlay — a bottom sheet on phones, a right-side drawer
+     on anything wide enough (same breakpoint/behaviour as the Settings
+     drawer, see #dev above). Tapping the dimmed backdrop closes it. ===== */
   #customizeOverlay {
     position: fixed; inset: 0; z-index: 80; background: rgba(2,10,5,.35);
-    display: none; justify-content: flex-end;
+    display: none; flex-direction: column; justify-content: flex-end;
   }
   #customizeOverlay.on { display: flex; }
   #customizeSheet {
-    width: min(88vw, 400px); height: 100%; display: flex; flex-direction: column;
+    width: 100%; max-height: 78vh; display: flex; flex-direction: column;
     background: linear-gradient(180deg, #0e1f14, #081209);
-    border: 1px solid var(--line); border-right: none;
-    border-radius: 22px 0 0 22px; box-shadow: -14px 0 40px rgba(0,0,0,.6);
+    border: 1px solid var(--line); border-bottom: none;
+    border-radius: 22px 22px 0 0; box-shadow: 0 -14px 40px rgba(0,0,0,.6);
+  }
+  @media (min-width: 700px) {
+    #customizeOverlay { flex-direction: row; }
+    #customizeSheet {
+      width: min(400px, 90vw); height: 100%; max-height: none;
+      border-bottom: 1px solid var(--line); border-right: none;
+      border-radius: 22px 0 0 22px; box-shadow: -14px 0 40px rgba(0,0,0,.6);
+    }
   }
   #customizeBar {
     flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between;
@@ -346,6 +366,7 @@
     color: var(--text); font: inherit; font-size: 11px; font-weight: 700; border: 1px solid var(--line); }
   .cz-swatch-btn.shape[aria-pressed="true"] { background: var(--lime); color: #10240a; border-color: var(--lime); }
   .cz-swatch-btn.shape[aria-pressed="true"]::after { content: none; }
+  .cz-swatch-btn.shape:disabled { opacity: .35; cursor: not-allowed; }
   .cz-sliderRow { margin-top: 14px; } .cz-sliderRow:first-child { margin-top: 0; }
   .cz-sliderHead { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; }
   .cz-sliderHead .val { color: var(--gold); font-variant-numeric: tabular-nums; }
@@ -625,6 +646,13 @@
         </div>
       </details>
 
+      <div class="cz-card" id="loadoutCard">
+        <h2 class="cz-h2"><span class="cz-step">3</span>Table reactions</h2>
+        <p class="cz-sub">Pick up to <span id="loadoutMaxTxt"></span> moves to send live during a game — they show up
+          as the quick-bar on the table. Tap one to equip or unequip it.</p>
+        <div class="cz-swatchRow shapes" id="custLoadout"></div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -744,7 +772,7 @@ const CLIP_FILES = [
   //     as generic talking/shrugging, never as a laugh — no "Laugh"/"Angry"/
   //     "Talking" entry exists here for that reason, not an oversight.
   { label: 'Celebrate',  file: 'F_Dances_005',                icon: '\u{1F389}' },
-  { label: 'Hip Hop',    file: 'M_Dances_008',                icon: '\u{1F57A}' },
+  { label: 'Hip Hop',    file: 'M_Dances_008',                icon: '\u{1F3B6}' },
   { label: 'Twerk',      file: 'F_Dances_007',                icon: '\u{1F483}' },
   { label: 'Wave',       file: 'M_Standing_Expressions_008',  icon: '\u{1F44B}' },
   { label: 'Walk',       file: 'F_Walk_002',                  icon: '\u{1F6B6}' },
@@ -769,11 +797,11 @@ const saveLoadout = () => { try { localStorage.setItem(LOADOUT_KEY, JSON.stringi
 // integration will bind to — the realtime layer already emits round:result and
 // action:committed, so this is the shape, not a guess.
 const GAME_EVENTS = [
-  { event: 'Win a hand',       reaction: 'Celebrate'     },
-  { event: 'Win the game',     reaction: 'Dance 1'       },
-  { event: 'Lose a hand',      reaction: 'Lose'          },
-  { event: 'Opponent misses',  reaction: 'Laugh'         },
-  { event: 'Annoyed',          reaction: 'Angry'         },
+  { event: 'Win a hand',       reaction: 'Celebrate', icon: '\u{1F389}' },
+  { event: 'Win the game',     reaction: 'Dance 1',   icon: '\u{1F3C6}' },
+  { event: 'Lose a hand',      reaction: 'Lose',      icon: '\u{1F61E}' },
+  { event: 'Opponent misses',  reaction: 'Laugh',     icon: '\u{1F602}' },
+  { event: 'Annoyed',          reaction: 'Angry',     icon: '\u{1F620}' },
 ];
 
 // Which cartoon effect rides along with which reaction.
@@ -1118,7 +1146,7 @@ function buildClipButtons() {
     if (label === 'Idle') continue;                        // idle is the resting loop, not a trigger
     if (!avatars[0]?.actions[rig.map[label]]) continue;    // clip absent for this rig
     const b = document.createElement('button');
-    b.className = 'act'; b.textContent = label;
+    b.className = 'act'; b.textContent = iconOf(label); b.title = label;
     b.onclick = () => triggerAll(label);
     wrap.appendChild(b);
   }
@@ -1387,6 +1415,24 @@ function setBodyType(next) {
 function keepAvatarVisible() {
   avatars.forEach(a => { a.alphaTarget = 1; a.alpha = 1; setAlpha(a, 1); });
   invalidate();
+}
+
+// Opening the Customize drawer covers a good chunk of the screen — bump the
+// avatar 50% bigger (still centred, seats(1) already puts a single avatar at
+// x=0.5) so it reads clearly in whatever's left visible, then put the size
+// back exactly how it was on close. Saves the pre-boost value once so
+// repeated opens/closes (or an interrupted close) can't compound the boost
+// or lose the original size.
+let _custBaseFraction = null;
+function boostAvatarForCustomize(on) {
+  if (on) {
+    if (_custBaseFraction === null) _custBaseFraction = TARGET_FRACTION;
+    TARGET_FRACTION = _custBaseFraction * 1.5;
+  } else if (_custBaseFraction !== null) {
+    TARGET_FRACTION = _custBaseFraction;
+    _custBaseFraction = null;
+  }
+  resize();
 }
 async function rebuildCharacter() {
   currentModel = charState.bodyType;
@@ -1977,6 +2023,34 @@ function faceShapeLabel(v, lowWord, highWord) {
   if (Math.abs(v - 1) < 0.01) return 'Neutral';
   return `${v < 1 ? lowWord : highWord} (${v.toFixed(2)})`;
 }
+// The quick-bar (#quickbar, drawn live on the table) only ever shows what's
+// in LOADOUT — this is the one place that array actually gets edited. A
+// multi-select toggle, not renderSwatchRow's swap-one-value semantics: up to
+// LOADOUT_MAX stay equipped at once, and unequipped buttons disable rather
+// than silently no-op once that cap is hit.
+function renderLoadoutUI() {
+  $('loadoutMaxTxt').textContent = LOADOUT_MAX;
+  const wrap = $('custLoadout'); wrap.innerHTML = '';
+  for (const { label, icon } of CLIP_FILES) {
+    if (label === 'Idle') continue; // idle is the resting loop, not a taunt to send
+    const equipped = LOADOUT.includes(label);
+    const b = document.createElement('button');
+    b.className = 'cz-swatch-btn shape';
+    b.textContent = `${icon} ${label}`;
+    b.setAttribute('aria-pressed', String(equipped));
+    b.disabled = !equipped && LOADOUT.length >= LOADOUT_MAX;
+    b.onclick = () => {
+      const at = LOADOUT.indexOf(label);
+      if (at >= 0) LOADOUT.splice(at, 1);
+      else if (LOADOUT.length < LOADOUT_MAX) LOADOUT.push(label);
+      else return;
+      saveLoadout();
+      renderQuickbar();
+      renderLoadoutUI();
+    };
+    wrap.appendChild(b);
+  }
+}
 function buildCustomizeUI() {
   renderSwatchRow('custSkin', SKIN_PRESETS, i => charState.tint && nearestPreset(charState.tint, SKIN_PRESETS) === i.hex,
     async i => { charState.tint = i.hex; await rebuildCharacter(); });
@@ -1990,6 +2064,7 @@ function buildCustomizeUI() {
     async i => { charState.beardColor = i.hex; await rebuildCharacter(); });
   renderSwatchRow('custGlasses', GLASSES_PRESETS, i => charState.glassesStyle === i.key,
     async i => { charState.glassesStyle = i.key; await rebuildCharacter(); }, 'shape');
+  renderLoadoutUI();
   const jawSlider = $('jawWidthSlider'), faceLenSlider = $('faceLengthSlider');
   jawSlider.oninput = () => { $('jawWidthVal').textContent = faceShapeLabel(Number(jawSlider.value), 'Narrower', 'Wider'); };
   jawSlider.onchange = async () => { charState.jawWidth = Number(jawSlider.value); await rebuildCharacter(); };
@@ -2278,9 +2353,9 @@ $('opt-shadow').onchange = e => {
 };
 // game-event buttons
 const evWrap = $('event-buttons');
-for (const { event, reaction } of GAME_EVENTS) {
+for (const { event, reaction, icon } of GAME_EVENTS) {
   const b = document.createElement('button');
-  b.className = 'act'; b.textContent = event; b.title = '-> ' + reaction;
+  b.className = 'act'; b.textContent = icon; b.title = event + ' -> ' + reaction;
   b.onclick = () => triggerAll(reaction);
   evWrap.appendChild(b);
 }
@@ -2340,13 +2415,23 @@ function renderQuickbar() {
   bar.style.display = LOADOUT.length ? 'flex' : 'none';
 }
 
-$('customizeToggle').onclick = () => { $('customizeOverlay').classList.add('on'); keepAvatarVisible(); };
-$('customizeClose2').onclick = () => $('customizeOverlay').classList.remove('on');
+$('customizeToggle').onclick = () => {
+  $('customizeOverlay').classList.add('on');
+  keepAvatarVisible();
+  boostAvatarForCustomize(true);
+};
+$('customizeClose2').onclick = () => {
+  $('customizeOverlay').classList.remove('on');
+  boostAvatarForCustomize(false);
+};
 // Tap the dimmed backdrop (not the sheet itself) to close, same as any
 // mobile bottom-sheet — e.target is only the overlay element itself when the
 // click lands outside #customizeSheet's bounds.
 $('customizeOverlay').addEventListener('click', e => {
-  if (e.target.id === 'customizeOverlay') $('customizeOverlay').classList.remove('on');
+  if (e.target.id === 'customizeOverlay') {
+    $('customizeOverlay').classList.remove('on');
+    boostAvatarForCustomize(false);
+  }
 });
 
 $('run-bench').onclick = runBench;
