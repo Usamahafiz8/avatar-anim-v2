@@ -1804,29 +1804,111 @@ function medianColour(ctx, pts, r) {
 // same-size cheek patch from the same photo. Fallback only (see
 // analyseSelfie) — both bridge and under-eye must independently clear the
 // bar so a single noisy patch can't trip a false positive.
+// Horizontal-edge strength at a point: a real glasses frame/bridge crosses
+// the face as a near-STRAIGHT horizontal line, which shows up as a strong,
+// consistent vertical gradient (big brightness jump from one row to the
+// next) repeated across many columns of the patch. Generic texture/shadow
+// (beard, studio lighting, skin pores) produces high but scattered variance
+// with no such directional consistency — this is what tells the two apart.
+function horizontalEdgeStrength(ctx, cx, cy, half) {
+  const n = 48;
+  const cv = document.createElement('canvas'); cv.width = n; cv.height = n;
+  const octx = cv.getContext('2d', { willReadFrequently: true });
+  octx.drawImage(ctx.canvas, Math.max(0, cx - half), Math.max(0, cy - half), half * 2, half * 2, 0, 0, n, n);
+  const d = octx.getImageData(0, 0, n, n).data;
+  const gray = new Float32Array(n * n);
+  for (let i = 0; i < n * n; i++) gray[i] = d[i*4] * .299 + d[i*4+1] * .587 + d[i*4+2] * .114;
+  // Per-row average vertical gradient (row y+1 minus row y), then how much
+  // that per-row average AGREES across rows (low spread = one consistent
+  // line, not scattered noise).
+  const rowGrad = new Float32Array(n - 1);
+  for (let y = 0; y < n - 1; y++) {
+    let sum = 0;
+    for (let x = 0; x < n; x++) sum += Math.abs(gray[(y+1)*n + x] - gray[y*n + x]);
+    rowGrad[y] = sum / n;
+  }
+  const maxGrad = Math.max(...rowGrad);
+  const meanGrad = rowGrad.reduce((a, b) => a + b, 0) / rowGrad.length;
+  return { maxGrad, peakiness: maxGrad / Math.max(1, meanGrad) };
+}
 function detectGlasses(ctx, at, faceHalf) {
   const r = Math.max(6, faceHalf * 0.35);
-  const bridge = at(6), underL = at(159), underR = at(386), cheekRef = at(50);
+  const bridge = at(6), underL = at(159), underR = at(386), cheekRef = at(50), foreheadRef = at(9);
   const bridgeVar = faceSharpness(ctx, bridge[0], bridge[1], r);
   const underVar = (faceSharpness(ctx, underL[0], underL[1], r) + faceSharpness(ctx, underR[0], underR[1], r)) / 2;
-  const cheekVar = Math.max(1, faceSharpness(ctx, cheekRef[0], cheekRef[1], r));
-  return bridgeVar > cheekVar * 3.5 && underVar > cheekVar * 3.5;
+  const skinVar = Math.max(1, (faceSharpness(ctx, cheekRef[0], cheekRef[1], r) +
+    faceSharpness(ctx, foreheadRef[0], foreheadRef[1], r)) / 2);
+  const varianceLooksLikeGlasses = bridgeVar > skinVar * 6 && underVar > skinVar * 6;
+  if (!varianceLooksLikeGlasses) return false;
+  // Second, independent check: the bridge patch must show ONE clear
+  // horizontal line (high peakiness), not generally busy texture. Lighting/
+  // beard/tattoo edges are rarely a single dominant horizontal line the way
+  // an actual frame bar is — this is what rejects the false positives the
+  // variance check alone let through (hard studio lighting, full beards).
+  const { peakiness } = horizontalEdgeStrength(ctx, bridge[0], bridge[1], r);
+  return peakiness > 2.2;
 }
-// Facial hair reads as jaw/chin/upper-lip skin significantly DARKER than the
-// already-sampled cheek/forehead tone. Fallback only — at least 3 of 4
-// sampled points must individually clear the bar, not just the blended
-// median, so one shadowed point can't outvote three reading as bare skin.
-function detectFacialHair(ctx, at, skin) {
-  if (!skin) return false;
-  const pts = [at(152), at(172), at(397), at(37)];
+// Facial hair reads as jaw/chin/cheek/upper-lip skin significantly DARKER
+// than the already-sampled cheek/forehead tone. Samples a wider grid than a
+// simple yes/no check needs so the FRACTION of dark points can stand in for
+// beard coverage/density, not just presence — that fraction is matched to
+// the nearest BEARD_STYLES density below instead of hard-coding 'thin'.
+// Points run from the sideburn down the jaw edge, across the chin, and along
+// the upper lip/moustache line — the areas an actual beard/moustache covers.
+const BEARD_SAMPLE_POINTS = [
+  132, 172, 136, 150, 149, 176, 148, 152,     // left jaw edge -> chin
+  361, 397, 365, 379, 378, 400, 377,          // right jaw edge -> chin
+  204, 106, 182, 83, 18, 313, 406, 335, 424,  // chin + moustache/upper-lip band
+];
+function detectFacialHair(ctx, at, skin, faceHalf) {
+  if (!skin) return { hasFacialHair: false, coverage: 0, color: null };
   const lum = c => c.r * .299 + c.g * .587 + c.b * .114;
   const skinLum = lum(skin);
+  // A point counts as "beard" only if it is BOTH darker than skin AND rough
+  // (high local pixel-to-pixel variance) — darkness alone doesn't separate
+  // hair from shadow. Ambient occlusion under the jaw/chin, or a downward
+  // camera angle, legitimately reads darker than the cheek on ANY face,
+  // beard or none (this is exactly how a clean-shaven photo, e.g. a child,
+  // was getting a beard before). Real stubble/beard is rough at pixel scale
+  // — individual hairs/follicle shadow — where cast shadow is a smooth
+  // gradient. Reuse faceSharpness (Laplacian variance) as the roughness
+  // signal, measured at each point against the same skin patches already
+  // sampled for skin tone, not a fixed constant.
+  const r = Math.max(4, (faceHalf ?? 30) * 0.12);
+  const skinRoughness = Math.max(1, faceSharpness(ctx, at(50)[0], at(50)[1], r));
   let darkCount = 0;
-  for (const p of pts) {
-    const patch = medianColour(ctx, [p], 5);
-    if (patch && lum(patch) < skinLum * 0.6) darkCount++;
+  const darkPatches = [];
+  for (const idx of BEARD_SAMPLE_POINTS) {
+    const pt = at(idx);
+    const patch = medianColour(ctx, [pt], 5);
+    if (!patch) continue;
+    const dark = lum(patch) < skinLum * 0.72;
+    if (!dark) continue;
+    const rough = faceSharpness(ctx, pt[0], pt[1], r) > skinRoughness * 1.8;
+    if (dark && rough) { darkCount++; darkPatches.push(patch); }
   }
-  return darkCount >= 3;
+  const coverage = darkCount / BEARD_SAMPLE_POINTS.length;
+  const color = darkPatches.length
+    ? new THREE.Color(
+        darkPatches.reduce((s, c) => s + c.r, 0) / darkPatches.length,
+        darkPatches.reduce((s, c) => s + c.g, 0) / darkPatches.length,
+        darkPatches.reduce((s, c) => s + c.b, 0) / darkPatches.length)
+    : null;
+  // Coverage bar raised alongside the stricter per-point test: requiring
+  // BOTH darkness and roughness already cuts false positives sharply, so
+  // fewer true points are needed to trust the ones that do pass.
+  return { hasFacialHair: coverage >= 0.22, coverage, color };
+}
+// Maps measured beard coverage to the BEARD_STYLES preset with the closest
+// `density` — same idea as nearestPreset() for colour swatches, just against
+// a coverage estimate instead of an exact value.
+function nearestBeardStyle(coverage) {
+  let best = 'thin', bestDist = Infinity;
+  for (const [key, cfg] of Object.entries(BEARD_STYLES)) {
+    const d = Math.abs(cfg.density - coverage);
+    if (d < bestDist) { bestDist = d; best = key; }
+  }
+  return best;
 }
 // Real trained classifier (AgeGenderNet), used only to pick a starting body —
 // the Customize panel's Body toggle and the dev-panel avatar switch always
@@ -1866,13 +1948,14 @@ function nearestPreset(hex, presets) {
   return best;
 }
 // Local-only trait detection: MediaPipe FaceLandmarker (landmarks/pose/
-// multi-face validation) + Canvas pixel sampling (skin/lip colour, glasses,
-// facial-hair presence) + face-api.js AgeGenderNet (body type). No network
-// call, no server, no API key — this project intentionally has no backend.
-// That means no eye colour, no hair/beard STYLE, and no jaw-width/face-length
-// read (those needed a vision model to judge, not just pixel sampling) — the
-// avatar keeps its default hair/face shape unless the Customize panel is
-// used to set them by hand.
+// multi-face validation, 478 points incl. iris) + Canvas pixel sampling
+// (skin/lip/hair/beard/eye colour, glasses, beard coverage) + face-api.js
+// AgeGenderNet (body type). No network call, no server, no API key — this
+// project intentionally has no backend, so all of this is estimated from
+// pixels/landmarks rather than judged by a vision model. Hair STYLE
+// (the mesh shape, not colour) still isn't detected — there's no shape
+// classifier here — so it keeps its default and is there to set by hand in
+// Fine-tune details if the automatic pick doesn't match.
 async function analyseSelfie(img) {
   const lm = await getLandmarker();
   const res = lm.detect(img);
@@ -1903,15 +1986,32 @@ async function analyseSelfie(img) {
 
   const skin = medianColour(ctx, [at(50), at(280), at(101), at(330), at(9)], Math.max(3, W * 0.012));
   const hasGlasses = detectGlasses(ctx, at, faceHalf);
-  const hasFacialHair = detectFacialHair(ctx, at, skin);
+  const { hasFacialHair, coverage, color: beardPatchColor } = detectFacialHair(ctx, at, skin, faceHalf);
   const body = await detectBodyType(img);
+  const faceHeight = Math.max(20, Math.abs(chinY - browY));
+
+  // Jaw width / face length: compare this face's own width:height ratio
+  // against a neutral reference ratio (~0.78, this RPM head's own bind-pose
+  // proportions) so the sliders move only as far as this face actually
+  // deviates from neutral, then clamp to each slider's real range.
+  const jawL = at(172), jawR = at(397);
+  const jawSpan = Math.hypot(jawL[0] - jawR[0], jawL[1] - jawR[1]);
+  const ratio = jawSpan / faceHeight;
+  const REF_RATIO = 0.78;
+  const jawWidth = Math.max(0.8, Math.min(1.25, 1 + (ratio - REF_RATIO) * 1.4));
+  const faceLength = Math.max(0.85, Math.min(1.2, 1 - (ratio - REF_RATIO) * 1.4));
 
   return {
     skin, hasFacialHair,
     bodyType: body?.bodyType ?? 'male', bodyConfidence: body?.confidence,
+    // Glasses SHAPE (round/square/sunglasses) isn't detectable from a photo
+    // any more than beard SHAPE is — 'round' is just the chosen default
+    // style when glasses are present at all, same idea as beard defaulting
+    // into whichever preset density is closest.
     glassesStyle: hasGlasses ? 'round' : 'none',
-    beardStyle: hasFacialHair ? 'thin' : 'none', beardColor: null,
-    jawWidth: 1, faceLength: 1,
+    beardStyle: hasFacialHair ? nearestBeardStyle(coverage) : 'none',
+    beardColor: beardPatchColor ? '#' + beardPatchColor.getHexString() : null,
+    jawWidth, faceLength,
   };
 }
 
@@ -2104,9 +2204,9 @@ async function handleSelfieImage(img) {
     msg.className = 'cz-msg show ok';
     const traitBits = [`${out.bodyType} body`];
     if (out.glassesStyle !== 'none') traitBits.push('glasses');
-    if (out.hasFacialHair) traitBits.push('facial hair');
-    msg.textContent = `Looks good ✓ Click Generate Avatar. Detected: ${traitBits.join(', ')}. ` +
-      `Hair style and face shape aren't auto-detected — set those in Fine-tune details below if you'd like.`;
+    if (out.hasFacialHair) traitBits.push(`${out.beardStyle} beard`);
+    traitBits.push('face shape');
+    msg.textContent = `Looks good ✓ Click Generate Avatar. Detected: ${traitBits.join(', ')}.`;
     $('generateBtn').disabled = false;
   } catch (err) {
     msg.className = 'cz-msg show error';
