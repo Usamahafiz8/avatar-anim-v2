@@ -30,15 +30,21 @@ const AVATARS = [
 ];
 
 // animation clips -----------------------------------------------------------
-// Only what is actually used. RPM's "Standing Expressions" set (Angry, Lose)
-// was dropped: 012's "Angry" was actually a thumbs-up, 015's replacement
-// held its pose for well under a second before settling back to neutral for
-// the rest of the reaction's hold time, and Lose's bow/facepalm had the same
-// problem — neither read as its label. Celebrate (F_Dances_005) and Laugh
-// (F_Talking_Variations_001) were cut alongside them.
+// Only what is actually used — and only after being screenshot-verified on
+// this rig, not picked by filename alone. RPM's "Standing Expressions" set
+// (Angry, Lose) mostly stays dropped: 012's "Angry" is a literal thumbs-up,
+// 015's replacement held its pose for well under a second before settling
+// back to neutral, and Lose's bow/facepalm had the same problem — neither
+// read as its label. Every Talking_Variations file tried reads as generic
+// talking/shrugging, never a laugh — no "Laugh"/"Talking" entry exists for
+// that reason. F_Dances_005 (Celebrate) was re-tried and DOES read as a
+// genuine cheer this time — a fresh look overturned the old verdict on that
+// one specifically; see CLIP_FILES in index.html for the reasoning per clip.
 const CLIPS = [
-  ['idle',  ['F_Standing_Idle_001']],
-  ['dance', ['F_Dances_001', 'F_Dances_004', 'F_Dances_006']],
+  ['idle',       ['F_Standing_Idle_001']],
+  ['dance',      ['F_Dances_001', 'F_Dances_005', 'F_Dances_007', 'M_Dances_008']],
+  ['locomotion', ['F_Walk_002']],
+  ['expression', ['M_Standing_Expressions_008']],
 ];
 
 const exists = async p => { try { await stat(p); return true; } catch { return false; } };

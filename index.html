@@ -586,14 +586,6 @@
                 <div class="cz-label-row"><span class="cz-label">Hair Color</span></div>
                 <div class="cz-swatchRow" id="custHairColor"></div>
               </div>
-              <div class="cz-section">
-                <div class="cz-label-row"><span class="cz-label">Eye Color</span></div>
-                <div class="cz-swatchRow" id="custEyes"></div>
-              </div>
-              <div class="cz-section">
-                <div class="cz-label-row"><span class="cz-label">Lip Color</span></div>
-                <div class="cz-swatchRow" id="custLips"></div>
-              </div>
             </div>
           </div>
 
@@ -625,12 +617,9 @@
 
           <div class="cz-group">
             <div class="cz-grouphead">Extras</div>
-            <div class="cz-switchRow">
-              <span class="cz-label">Glasses</span>
-              <label class="cz-switch">
-                <input type="checkbox" id="custGlassesToggle">
-                <span class="track"></span><span class="knob"></span>
-              </label>
+            <div class="cz-section">
+              <div class="cz-label-row"><span class="cz-label">Glasses</span></div>
+              <div class="cz-swatchRow shapes" id="custGlasses"></div>
             </div>
           </div>
         </div>
@@ -740,23 +729,32 @@ const MODELS = {
 const CLIP_FILES = [
   { label: 'Idle',       file: 'F_Standing_Idle_001',        icon: '\u{1F610}' },
   { label: 'Dance 1',    file: 'F_Dances_001',               icon: '\u{1F57A}' },
-  { label: 'Dance 2',    file: 'F_Dances_004',               icon: '\u{1F483}' },
-  { label: 'Dance 3',    file: 'F_Dances_006',               icon: '\u{1F3B6}' },
-  // Reverted: Celebrate/Hip Hop/Twerk/Wave/Walk (rpm-*.glb) came from the
-  // sibling character-customizer project as raw local files with no
-  // redistribution-compliant, re-fetchable source — RPM's own animation
-  // library (what fetch-assets.mjs actually pulls from) has no clip under
-  // those names, only generically-numbered Dances_00X/Standing_Expressions_
-  // 00X/Talking_Variations_00X. That made every deploy 404 on them at
-  // build time (fetch-assets.mjs can't fetch a file that doesn't exist
-  // upstream) and crash the whole page via the global error handler.
+  // All five below are real Ready Player Me animation-library files (fetched
+  // by fetch-assets.mjs, same as everything else here — no non-redistributable
+  // assets this time). Each was screenshot-verified on this rig before being
+  // picked: 21 candidates were downloaded and tried (unused Dances_00X,
+  // Walk_00X, Standing_Expressions_00X, Talking_Variations_00X); these five
+  // read clearly as their label and the rest didn't. Notably:
+  //   - F_Dances_005 reads as a genuine cheer/fist-pump — worth revisiting
+  //     since an older comment in this file called it unconvincing; a fresh
+  //     look said otherwise this time.
+  //   - M_Standing_Expressions_012 ("Angry") is confirmed a literal thumbs-up,
+  //     matching that same old note — left out.
+  //   - Every Talking_Variations/other Standing_Expressions file tried read
+  //     as generic talking/shrugging, never as a laugh — no "Laugh"/"Angry"/
+  //     "Talking" entry exists here for that reason, not an oversight.
+  { label: 'Celebrate',  file: 'F_Dances_005',                icon: '\u{1F389}' },
+  { label: 'Hip Hop',    file: 'M_Dances_008',                icon: '\u{1F57A}' },
+  { label: 'Twerk',      file: 'F_Dances_007',                icon: '\u{1F483}' },
+  { label: 'Wave',       file: 'M_Standing_Expressions_008',  icon: '\u{1F44B}' },
+  { label: 'Walk',       file: 'F_Walk_002',                  icon: '\u{1F6B6}' },
 ];
 
 // The player's equipped taunts. Limits PLAYER-SENT reactions only — game events
 // still fire their own animation regardless of what is equipped.
 const LOADOUT_MAX = 4;
 const LOADOUT_KEY = 'sbj.loadout.v2';
-let LOADOUT = ['Dance 1', 'Dance 2', 'Dance 3', 'Celebrate'];
+let LOADOUT = ['Dance 1'];
 try {
   const saved = JSON.parse(localStorage.getItem(LOADOUT_KEY) || 'null');
   // a loadout saved before a move was removed must not equip it any more
@@ -794,9 +792,11 @@ const EFFECTS = {
 const FACES = {
   'Idle':          { smile: .15, open: 0,   squint: 0   },
   'Dance 1':       { smile: .60, open: .12, squint: 0   },
-  'Dance 2':       { smile: .65, open: .15, squint: 0   },
-  'Dance 3':       { smile: .60, open: .12, squint: 0   },
   'Celebrate':     { smile: .90, open: .40, squint: .10 },
+  'Hip Hop':       { smile: .55, open: .10, squint: 0   },
+  'Twerk':         { smile: .50, open: .08, squint: 0   },
+  'Wave':          { smile: .60, open: 0,   squint: 0   },
+  'Walk':          { smile: .15, open: 0,   squint: 0   },
   'Angry':         { smile: 0,   open: .15, squint: .45 },
   'Laugh':         { smile: 1,   open: .55, squint: .35 },
   'Lose':          { smile: 0,   open: .08, squint: .50 },
@@ -986,7 +986,7 @@ async function build() {
     // materials are independent per-avatar clones above, so tinting/painting
     // one seat's texture never bleeds into another's. See charState/
     // applyPersonalization below; a no-op until the user actually customizes.
-    applyPersonalization(root, currentModel, headBone);
+    applyPersonalization(root, headBone);
     const av = { root, mixer, actions: {}, current: null, headBone, headTopBone, morphMeshes, meshes,
                  alpha: 1, alphaTarget: 1,
                  face: { smile: .15, open: 0, squint: 0 }, faceTarget: { ...FACES['Idle'] },
@@ -1356,8 +1356,8 @@ async function runBench() {
 // One shared state object: the selfie flow, the premade picker, and the
 // Customize panel all read/write this and rebuild from it.
 const charState = {
-  bodyType: 'male', tint: null, hasGlasses: false, beardStyle: 'none', beardColor: null,
-  eyeColor: null, lipColor: null, hairStyle: 'default', hairColor: null,
+  bodyType: 'male', tint: null, glassesStyle: 'none', beardStyle: 'none', beardColor: null,
+  hairStyle: 'default', hairColor: null,
   jawWidth: 1, faceLength: 1,
 };
 // Beard is restricted to the male body (custBeardSection hides outside
@@ -1430,53 +1430,6 @@ function applyTint(root, hex) {
   });
 }
 
-// ---- eye / lip colour: painted directly onto the shared texture ----------
-// One mesh, one material, zero morph targets — but the material's texture
-// can still be painted regardless of mesh structure. UV rects found
-// empirically; male/female bodies are separate art assets with different
-// atlas layouts, so each needs its own rect.
-const FACE_UV = {
-  male:   { eye: [0.79, 0.015, 0.975, 0.205], lip: [0.18, 0.239, 0.31, 0.256] },
-  female: { eye: [0.51, 0.51, 0.745, 0.745],  lip: [0.18, 0.239, 0.31, 0.256] },
-};
-function paintFace(root, { eyeColor, lipColor }, bodyKey = 'male') {
-  if (!eyeColor && !lipColor) return;
-  const uv = FACE_UV[bodyKey] ?? FACE_UV.male;
-  root.traverse(o => {
-    if (!o.isMesh) return;
-    const mats = Array.isArray(o.material) ? o.material : [o.material];
-    for (const mat of mats) {
-      const srcImg = mat.map?.image;
-      if (!srcImg) continue;
-      const cv = document.createElement('canvas');
-      cv.width = srcImg.width; cv.height = srcImg.height;
-      const ctx = cv.getContext('2d');
-      ctx.drawImage(srcImg, 0, 0);
-      const paint = ([u0, v0, u1, v1], color, blend, alpha) => {
-        const x0 = u0 * cv.width, y0 = v0 * cv.height, x1 = u1 * cv.width, y1 = v1 * cv.height;
-        const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, rx = (x1 - x0) / 2, ry = (y1 - y0) / 2;
-        ctx.save();
-        ctx.globalCompositeOperation = blend;
-        ctx.globalAlpha = alpha ?? 1;
-        ctx.filter = `blur(${Math.max(2, Math.min(rx, ry) * 0.35)}px)`;
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.ellipse(cx, cy, rx * 0.92, ry * 0.92, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      };
-      if (eyeColor) paint(uv.eye, eyeColor, 'hue');
-      if (lipColor) paint(uv.lip, lipColor, 'color', 0.85);
-      const tex = new THREE.CanvasTexture(cv);
-      tex.colorSpace = THREE.SRGBColorSpace;
-      tex.flipY = mat.map.flipY;
-      tex.wrapS = mat.map.wrapS; tex.wrapT = mat.map.wrapT;
-      mat.map = tex;
-      mat.needsUpdate = true;
-    }
-  });
-}
-
 // ---- real face-shape deformation (not colour, not an accessory) ----------
 // No morph targets, so this edits the mesh's own REST-POSE vertex positions
 // directly (skin weights untouched, so it still animates correctly). Bounds
@@ -1540,21 +1493,41 @@ function applyFaceShape(root, { jawWidth = 1, faceLength = 1 } = {}) {
 }
 
 // ---- glasses accessory: real geometry, parented to the Head bone ---------
-function buildGlasses() {
+// Three real variations, not just an on/off toggle — a round wire frame
+// (clear lens), boxy square frame (clear lens), and sunglasses (round frame,
+// near-opaque dark lens). Each is built from the same primitives (ring/box
+// frame + lens + bridge + arms), just swapping geometry/material per style.
+const GLASSES_STYLES = {
+  round:      { shape: 'round', frameColor: 0x1c1c1c, lensColor: 0x2a3a48, lensOpacity: 0.32 },
+  square:     { shape: 'square', frameColor: 0x2a1c10, lensColor: 0x2a3a48, lensOpacity: 0.32 },
+  sunglasses: { shape: 'round', frameColor: 0x0a0a0a, lensColor: 0x0a0a0a, lensOpacity: 0.88 },
+};
+function buildGlasses(style = 'round') {
+  const cfg = GLASSES_STYLES[style] ?? GLASSES_STYLES.round;
   const g = new THREE.Group();
-  const frameMat = new THREE.MeshStandardMaterial({ color: 0x1c1c1c, roughness: 0.3, metalness: 0.6 });
+  const frameMat = new THREE.MeshStandardMaterial({ color: cfg.frameColor, roughness: 0.3, metalness: 0.6 });
   const lensMat = new THREE.MeshPhysicalMaterial({
-    color: 0x2a3a48, transparent: true, opacity: 0.32, roughness: 0.08,
+    color: cfg.lensColor, transparent: true, opacity: cfg.lensOpacity, roughness: 0.08,
     metalness: 0, clearcoat: 1, clearcoatRoughness: 0.1, side: THREE.DoubleSide,
   });
-  const lensGeo = new THREE.TorusGeometry(0.025, 0.0028, 8, 24);
-  const glassGeo = new THREE.CircleGeometry(0.025, 24);
   function eye(x) {
     const grp = new THREE.Group();
-    const ring = new THREE.Mesh(lensGeo, frameMat);
-    const glass = new THREE.Mesh(glassGeo, lensMat);
-    glass.position.z = 0.001;
-    grp.add(ring, glass);
+    if (cfg.shape === 'square') {
+      const w = 0.05, h = 0.04, t = 0.004;
+      const barMat = frameMat;
+      const top = new THREE.Mesh(new THREE.BoxGeometry(w, t, t), barMat); top.position.y = h / 2;
+      const bot = new THREE.Mesh(new THREE.BoxGeometry(w, t, t), barMat); bot.position.y = -h / 2;
+      const left = new THREE.Mesh(new THREE.BoxGeometry(t, h, t), barMat); left.position.x = -w / 2;
+      const right = new THREE.Mesh(new THREE.BoxGeometry(t, h, t), barMat); right.position.x = w / 2;
+      const glass = new THREE.Mesh(new THREE.PlaneGeometry(w - t, h - t), lensMat);
+      glass.position.z = 0.001;
+      grp.add(top, bot, left, right, glass);
+    } else {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.025, 0.0028, 8, 24), frameMat);
+      const glass = new THREE.Mesh(new THREE.CircleGeometry(0.025, 24), lensMat);
+      glass.position.z = 0.001;
+      grp.add(ring, glass);
+    }
     grp.position.set(x, 0, 0);
     return grp;
   }
@@ -1712,21 +1685,31 @@ function buildBeard(style = 'full', hex) {
 const HAIR_STYLES = {
   // Same tight-scalp footprint as buzz, but rendered in the SKIN tone
   // instead of a hair colour (see applyPersonalization) — this body has no
-  // way to hide or recolour its baked-in hair directly (see paintFace's
-  // notes), so "bald" is simulated by covering it with a skin-coloured cap
-  // rather than an actual hairless head.
-  bald: { r: 0.098, seg: [16, 12], theta: 0.40, y: 0.117, z: -0.005 },
-  buzz: { r: 0.100, seg: [16, 12], theta: 0.42, y: 0.115, z: -0.005 },
-  crop: { r: 0.110, seg: [16, 12], theta: 0.65, y: 0.100, z: -0.010 },
-  swept:{ r: 0.112, seg: [16, 12], theta: 0.68, y: 0.098, z: -0.020 },
+  // way to hide or recolour its baked-in hair directly, so "bald" is
+  // simulated by covering it with a skin-coloured cap rather than an
+  // actual hairless head.
+  // r/theta bumped up from an earlier pass that undershot the real skull:
+  // the cap's own pole (apex) needs to clear HeadTop_End with a small
+  // margin (measured ~0.226 above the Head bone on this rig), and bald/buzz
+  // specifically need to be AT LEAST as big as the fuller styles — their
+  // whole job is fully covering the real baked-in hair, so a "tight" small
+  // dome just leaves the real hair peeking out round the edges instead of
+  // reading as bald/buzzed (confirmed by screenshot: the old bald/buzz were
+  // indistinguishable from Default because they were too small to cover
+  // anything).
+  bald: { r: 0.126, seg: [16, 12], theta: 0.70, y: 0.109, z: -0.004 },
+  buzz: { r: 0.127, seg: [16, 12], theta: 0.72, y: 0.108, z: -0.004 },
+  crop: { r: 0.124, seg: [16, 12], theta: 0.76, y: 0.104, z: -0.006 },
+  swept:{ r: 0.126, seg: [16, 12], theta: 0.80, y: 0.100, z: -0.016 },
   // Bigger/lower coverage reads as more hair reaching toward the shoulders —
   // still just a dome (no actual hanging strands), the honest limit of a
   // one-piece accessory on a body with no dedicated hair geometry.
-  long: { r: 0.118, seg: [18, 14], theta: 0.85, y: 0.085, z: -0.025 },
+  long: { r: 0.132, seg: [18, 14], theta: 0.96, y: 0.086, z: -0.022 },
   // Larger radius, rounder silhouette for a fuller, voluminous look.
-  afro: { r: 0.145, seg: [20, 16], theta: 0.60, y: 0.125, z: -0.010 },
+  afro: { r: 0.158, seg: [20, 16], theta: 0.68, y: 0.112, z: -0.006 },
 };
 const HAIR_COLOR_DEFAULT = 0x2a1a12;
+const DEFAULT_SKIN_HEX = '#c68a5c'; // matches the "Medium" skin preset — a neutral fallback for Bald before any tint is picked
 function buildHairCap(style = 'crop', hex) {
   const cfg = HAIR_STYLES[style] ?? HAIR_STYLES.crop;
   const mat = new THREE.MeshStandardMaterial({
@@ -1741,14 +1724,13 @@ function buildHairCap(style = 'crop', hex) {
 }
 
 // ---- glue: apply charState onto one already-built avatar root -----------
-function applyPersonalization(root, bodyKey, headBone) {
+function applyPersonalization(root, headBone) {
   if (charState.tint) applyTint(root, charState.tint);
-  paintFace(root, { eyeColor: charState.eyeColor, lipColor: charState.lipColor }, bodyKey);
   if (charState.jawWidth !== 1 || charState.faceLength !== 1)
     applyFaceShape(root, { jawWidth: charState.jawWidth, faceLength: charState.faceLength });
   if (!headBone) return;
-  if (charState.hasGlasses) {
-    const glasses = buildGlasses();
+  if (charState.glassesStyle && charState.glassesStyle !== 'none') {
+    const glasses = buildGlasses(charState.glassesStyle);
     glasses.position.set(0, 0.088, 0.115);
     headBone.add(glasses);
   }
@@ -1763,7 +1745,10 @@ function applyPersonalization(root, bodyKey, headBone) {
   if (effectiveHairStyle === 'bald') {
     // Bald ignores hairColor entirely — it's covering the head in the
     // person's own skin tone, not a hair colour, so it reads as bare scalp.
-    const skinHex = charState.tint ? new THREE.Color(charState.tint).getHex() : undefined;
+    // Falls back to a neutral skin tone (not the brown HAIR_COLOR_DEFAULT)
+    // when no tint is picked yet — otherwise "Bald" rendered as a solid
+    // brown dome, indistinguishable from a hair colour swatch.
+    const skinHex = new THREE.Color(charState.tint ?? DEFAULT_SKIN_HEX).getHex();
     headBone.add(buildHairCap('bald', skinHex));
   } else if (effectiveHairStyle) {
     headBone.add(buildHairCap(effectiveHairStyle, charState.hairColor ? new THREE.Color(charState.hairColor).getHex() : undefined));
@@ -1938,14 +1923,12 @@ async function analyseSelfie(img) {
   const hasGlasses = detectGlasses(ctx, at, faceHalf);
   const hasFacialHair = detectFacialHair(ctx, at, skin);
   const body = await detectBodyType(img);
-  const lip = medianColour(ctx, [at(12), at(15)], Math.max(2, W * 0.006));
 
   return {
-    skin, hasGlasses, hasFacialHair,
+    skin, hasFacialHair,
     bodyType: body?.bodyType ?? 'male', bodyConfidence: body?.confidence,
-    eyeColor: null, hairStyle: 'default', hairColor: null,
+    glassesStyle: hasGlasses ? 'round' : 'none', hairStyle: 'default', hairColor: null,
     beardStyle: hasFacialHair ? 'thin' : 'none', beardColor: null,
-    lipColor: lip ? '#' + lip.getHexString() : null,
     jawWidth: 1, faceLength: 1,
   };
 }
@@ -1956,15 +1939,9 @@ const SKIN_PRESETS = [
   { hex: '#c68a5c', label: 'Medium' }, { hex: '#8a5a3c', label: 'Tan' },
   { hex: '#5c4030', label: 'Deep' },
 ];
-const EYE_PRESETS = [
-  { hex: '#4a3222', label: 'Brown' }, { hex: '#2e6fb0', label: 'Blue' },
-  { hex: '#3d7a4a', label: 'Green' }, { hex: '#6b5030', label: 'Hazel' },
-  { hex: '#7a9ab0', label: 'Grey' }, { hex: '#1a1a1a', label: 'Black' },
-];
-const LIP_PRESETS = [
-  { hex: '#a8654a', label: 'Natural' }, { hex: '#b03050', label: 'Rose' },
-  { hex: '#9c1f2e', label: 'Red' }, { hex: '#6b2540', label: 'Berry' },
-  { hex: '#c98a72', label: 'Nude' },
+const GLASSES_PRESETS = [
+  { key: 'none', label: 'None' }, { key: 'round', label: 'Round' },
+  { key: 'square', label: 'Square' }, { key: 'sunglasses', label: 'Sunglasses' },
 ];
 const BEARD_PRESETS = [
   { key: 'none', label: 'None' }, { key: 'thin', label: 'Thin' },
@@ -2007,15 +1984,12 @@ function buildCustomizeUI() {
     async i => { charState.hairStyle = i.key; await rebuildCharacter(); }, 'shape');
   renderSwatchRow('custHairColor', HAIR_COLOR_PRESETS, i => charState.hairColor === i.hex,
     async i => { charState.hairColor = i.hex; await rebuildCharacter(); });
-  renderSwatchRow('custEyes', EYE_PRESETS, i => charState.eyeColor && nearestPreset(charState.eyeColor, EYE_PRESETS) === i.hex,
-    async i => { charState.eyeColor = i.hex; await rebuildCharacter(); });
-  renderSwatchRow('custLips', LIP_PRESETS, i => charState.lipColor && nearestPreset(charState.lipColor, LIP_PRESETS) === i.hex,
-    async i => { charState.lipColor = i.hex; await rebuildCharacter(); });
   renderSwatchRow('custBeard', BEARD_PRESETS, i => charState.beardStyle === i.key,
     async i => { charState.beardStyle = i.key; await rebuildCharacter(); }, 'shape');
   renderSwatchRow('custBeardColor', HAIR_COLOR_PRESETS, i => charState.beardColor === i.hex,
     async i => { charState.beardColor = i.hex; await rebuildCharacter(); });
-  $('custGlassesToggle').onchange = async e => { charState.hasGlasses = e.target.checked; await rebuildCharacter(); };
+  renderSwatchRow('custGlasses', GLASSES_PRESETS, i => charState.glassesStyle === i.key,
+    async i => { charState.glassesStyle = i.key; await rebuildCharacter(); }, 'shape');
   const jawSlider = $('jawWidthSlider'), faceLenSlider = $('faceLengthSlider');
   jawSlider.oninput = () => { $('jawWidthVal').textContent = faceShapeLabel(Number(jawSlider.value), 'Narrower', 'Wider'); };
   jawSlider.onchange = async () => { charState.jawWidth = Number(jawSlider.value); await rebuildCharacter(); };
@@ -2046,15 +2020,13 @@ buildCustomizeUI._rerenderActive = () => {
       b.setAttribute('aria-pressed', String(active));
     });
   };
-  // Skin/eye/lip colour stay at full precision rather than snapping to a
-  // preset (see renderSwatchRow's custSkin call) — `nearest` highlights the
-  // closest swatch for orientation without implying an exact match.
+  // Skin colour stays at full precision rather than snapping to a preset
+  // (see renderSwatchRow's custSkin call) — `nearest` highlights the closest
+  // swatch for orientation without implying an exact match.
   mark('custSkin', SKIN_PRESETS, 'tint', true);
-  mark('custEyes', EYE_PRESETS, 'eyeColor', true);
-  mark('custLips', LIP_PRESETS, 'lipColor', true);
   mark('custBeard', BEARD_PRESETS, 'beardStyle');
   mark('custBeardColor', HAIR_COLOR_PRESETS, 'beardColor');
-  $('custGlassesToggle').checked = charState.hasGlasses;
+  mark('custGlasses', GLASSES_PRESETS, 'glassesStyle');
   mark('custHairStyle', HAIR_STYLE_PRESETS, 'hairStyle');
   mark('custHairColor', HAIR_COLOR_PRESETS, 'hairColor');
   const jawSlider = $('jawWidthSlider'), faceLenSlider = $('faceLengthSlider');
@@ -2095,8 +2067,7 @@ function buildPremadePicks() {
       [...wrap.children].forEach(c => c.removeAttribute('data-active'));
       el.dataset.active = 'true';
       setBodyType(p.key); charState.tint = p.tint;
-      charState.hasGlasses = false; charState.beardStyle = 'none'; charState.beardColor = null;
-      charState.eyeColor = null; charState.lipColor = null;
+      charState.glassesStyle = 'none'; charState.beardStyle = 'none'; charState.beardColor = null;
       charState.hairStyle = 'default'; charState.hairColor = null;
       charState.jawWidth = 1; charState.faceLength = 1;
       await rebuildCharacter();
@@ -2130,18 +2101,17 @@ async function handleSelfieImage(img) {
       return;
     }
     pendingImg = {
-      skin: out.skin, hasGlasses: out.hasGlasses, hasFacialHair: out.hasFacialHair, bodyType: out.bodyType,
-      eyeColor: out.eyeColor, hairStyle: out.hairStyle, hairColor: out.hairColor,
-      beardStyle: out.beardStyle, beardColor: out.beardColor, lipColor: out.lipColor,
+      skin: out.skin, glassesStyle: out.glassesStyle, hasFacialHair: out.hasFacialHair, bodyType: out.bodyType,
+      hairStyle: out.hairStyle, hairColor: out.hairColor,
+      beardStyle: out.beardStyle, beardColor: out.beardColor,
       jawWidth: out.jawWidth, faceLength: out.faceLength,
     };
     msg.className = 'cz-msg show ok';
     const traitBits = [`${out.bodyType} body`];
-    if (out.hasGlasses) traitBits.push('glasses');
+    if (out.glassesStyle !== 'none') traitBits.push('glasses');
     if (out.hasFacialHair) traitBits.push('facial hair');
-    if (out.lipColor) traitBits.push('lip colour');
     msg.textContent = `Looks good ✓ Click Generate Avatar. Detected: ${traitBits.join(', ')}. ` +
-      `Hair, eye colour and face shape aren't auto-detected — set those in Fine-tune details below if you'd like.`;
+      `Hair style and face shape aren't auto-detected — set those in Fine-tune details below if you'd like.`;
     $('generateBtn').disabled = false;
   } catch (err) {
     msg.className = 'cz-msg show error';
@@ -2207,12 +2177,10 @@ async function generateFromSelfie(bodyType) {
   try {
     setBodyType(bodyType);
     charState.tint = '#' + pendingImg.skin.getHexString();
-    charState.hasGlasses = !!pendingImg.hasGlasses;
+    charState.glassesStyle = pendingImg.glassesStyle ?? 'none';
     const wantsBeard = charState.bodyType === 'male' && pendingImg.hasFacialHair;
     charState.beardStyle = wantsBeard ? pendingImg.beardStyle : 'none';
     charState.beardColor = wantsBeard ? pendingImg.beardColor : null;
-    charState.eyeColor = pendingImg.eyeColor;
-    charState.lipColor = pendingImg.lipColor;
     charState.hairStyle = pendingImg.hairStyle;
     charState.hairColor = pendingImg.hairColor;
     charState.jawWidth = pendingImg.jawWidth ?? 1;
