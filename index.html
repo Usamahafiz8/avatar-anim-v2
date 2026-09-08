@@ -1804,25 +1804,114 @@ const HAIR_STYLES = {
   // reading as bald/buzzed (confirmed by screenshot: the old bald/buzz were
   // indistinguishable from Default because they were too small to cover
   // anything).
-  bald: { r: 0.126, seg: [16, 12], theta: 0.70, y: 0.109, z: -0.004 },
-  buzz: { r: 0.127, seg: [16, 12], theta: 0.72, y: 0.108, z: -0.004 },
-  crop: { r: 0.124, seg: [16, 12], theta: 0.76, y: 0.104, z: -0.006 },
-  swept:{ r: 0.126, seg: [16, 12], theta: 0.80, y: 0.100, z: -0.016 },
+  // theta past ~0.5 (the sphere's equator) makes the dome's front rim bulge
+  // OUTWARD as well as down — past a certain point that bulge sits further
+  // forward than the actual face surface and reads as a mask covering the
+  // eyes/nose instead of hair on the scalp. Coverage now comes mainly from a
+  // bigger radius (so the dome clears the face outward, like Afro already
+  // did) with theta kept close to/just past the equator, not from pushing
+  // theta deep past it (confirmed by screenshot: the old theta 0.70-0.96
+  // values covered the whole face like a hood/ski mask).
+  bald: { r: 0.145, seg: [16, 12], theta: 0.60, y: 0.108, z: -0.004 },
+  // `strand` picks a growth pattern for hairStrandMap (see below) — without
+  // it, every style painted as one flat, uniformly-lit colour, which read as
+  // a smooth plastic dome rather than hair no matter how well the silhouette
+  // was shaped.
+  buzz: { r: 0.145, seg: [16, 12], theta: 0.60, y: 0.107, z: -0.004, strand: 'short' },
+  crop: { r: 0.140, seg: [16, 12], theta: 0.62, y: 0.104, z: -0.006, strand: 'short' },
+  swept:{ r: 0.145, seg: [16, 12], theta: 0.64, y: 0.100, z: -0.014, strand: 'swept' },
   // Bigger/lower coverage reads as more hair reaching toward the shoulders —
   // still just a dome (no actual hanging strands), the honest limit of a
   // one-piece accessory on a body with no dedicated hair geometry.
-  long: { r: 0.132, seg: [18, 14], theta: 0.96, y: 0.086, z: -0.022 },
+  long: { r: 0.155, seg: [18, 14], theta: 0.64, y: 0.090, z: -0.020, strand: 'long' },
   // Larger radius, rounder silhouette for a fuller, voluminous look.
-  afro: { r: 0.158, seg: [20, 16], theta: 0.68, y: 0.112, z: -0.006 },
+  afro: { r: 0.158, seg: [20, 16], theta: 0.68, y: 0.112, z: -0.006, strand: 'curly' },
 };
 const HAIR_COLOR_DEFAULT = 0x2a1a12;
 const DEFAULT_SKIN_HEX = '#c68a5c'; // matches the "Medium" skin preset — a neutral fallback for Bald before any tint is picked
+// Individual strands painted in a darker/lighter jitter of the base colour,
+// growing from the crown (v=0, the sphere's pole) down toward the open rim —
+// the same idea as beardHairMap's strand texture, but oriented along the
+// dome's meridian instead of scattered in a square patch, and feathered by V
+// (distance from the crown) rather than by radial distance, so it fades out
+// right at the cap's open edge instead of in the middle of the scalp.
+// 'curly' draws short zig-zag segments instead of straight strokes — the
+// only way to fake volume/frizz without real strand geometry.
+const _hairMapCache = new Map();
+function hairStrandMap(hex, strandStyle = 'short', key = strandStyle + '-' + hex) {
+  if (_hairMapCache.has(key)) return _hairMapCache.get(key);
+  const w = 64, h = 256;
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  const ctx = cv.getContext('2d');
+  const base = new THREE.Color(hex);
+  const rgb = c => `rgb(${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)})`;
+  ctx.fillStyle = rgb(base);
+  ctx.fillRect(0, 0, w, h);
+  let seed = 4242;
+  const rand = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+  const cfg = {
+    short: { count: 700, lenMin: 0.35, lenMax: 0.55, drift: 3, curl: 0 },
+    swept: { count: 750, lenMin: 0.55, lenMax: 0.85, drift: 26, curl: 0 },
+    long:  { count: 850, lenMin: 0.75, lenMax: 1.05, drift: 8, curl: 0 },
+    curly: { count: 1500, lenMin: 0.45, lenMax: 0.75, drift: 10, curl: 6 },
+  }[strandStyle] ?? { count: 700, lenMin: 0.35, lenMax: 0.55, drift: 3, curl: 0 };
+  ctx.lineCap = 'round';
+  for (let i = 0; i < cfg.count; i++) {
+    const x = rand() * w;
+    const yStart = rand() * h * 0.12;
+    const len = h * (cfg.lenMin + rand() * (cfg.lenMax - cfg.lenMin));
+    const shade = 0.6 + rand() * 0.6;
+    ctx.strokeStyle = rgb(base.clone().multiplyScalar(shade));
+    ctx.lineWidth = 0.6 + rand() * 1.3;
+    ctx.beginPath();
+    ctx.moveTo(x, yStart);
+    if (cfg.curl > 0) {
+      // A few short zig-zag segments instead of one straight stroke —
+      // reads as a curl/kink rather than a strand lying flat.
+      const steps = 4;
+      let cx = x, cy = yStart;
+      for (let s = 1; s <= steps; s++) {
+        cx += (rand() - 0.5) * cfg.curl * 2;
+        cy = yStart + (len * s) / steps;
+        ctx.lineTo(cx, cy);
+      }
+    } else {
+      const drift = (rand() - 0.5) * cfg.drift;
+      ctx.lineTo(x + drift, yStart + len);
+    }
+    ctx.stroke();
+  }
+  // Fade to transparent over the last stretch before the rim so the cap
+  // blends into the scalp instead of ending in a hard edge.
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.62, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.90, 'rgba(255,255,255,0.35)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.globalCompositeOperation = 'destination-in';
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
+  ctx.globalCompositeOperation = 'source-over';
+  const tex = new THREE.CanvasTexture(cv);
+  tex.wrapS = THREE.RepeatWrapping;
+  _hairMapCache.set(key, tex);
+  return tex;
+}
 function buildHairCap(style = 'crop', hex) {
   const cfg = HAIR_STYLES[style] ?? HAIR_STYLES.crop;
-  const mat = new THREE.MeshStandardMaterial({
-    color: hex ?? HAIR_COLOR_DEFAULT, roughness: 0.8,
-    transparent: true, alphaMap: featherAlphaMap(0.55, 'hair-' + style),
-  });
+  const color = hex ?? HAIR_COLOR_DEFAULT;
+  // Bald is bare skin, not hair — a strand texture would paint a fake
+  // hairline onto what's supposed to read as scalp, so it keeps the old
+  // flat, feathered dome instead of hairStrandMap.
+  const mat = cfg.strand
+    ? new THREE.MeshStandardMaterial({
+        roughness: 0.85, metalness: 0, transparent: true,
+        map: hairStrandMap(color, cfg.strand, `hair-${style}-${color}`),
+      })
+    : new THREE.MeshStandardMaterial({
+        color, roughness: 0.8,
+        transparent: true, alphaMap: featherAlphaMap(0.55, 'hair-' + style),
+      });
   const geo = new THREE.SphereGeometry(cfg.r, cfg.seg[0], cfg.seg[1], 0, Math.PI * 2, 0, Math.PI * cfg.theta);
   const cap = new THREE.Mesh(geo, mat);
   cap.position.set(0, cfg.y, cfg.z);
