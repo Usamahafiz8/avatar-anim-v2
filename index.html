@@ -741,10 +741,16 @@ const CLIP_FILES = [
   { label: 'Idle',       file: 'F_Standing_Idle_001',        icon: '\u{1F610}' },
   { label: 'Dance 1',    file: 'F_Dances_001',               icon: '\u{1F57A}' },
   { label: 'Dance 2',    file: 'F_Dances_004',               icon: '\u{1F483}' },
-  { label: 'Dance 3',    file: 'F_Dances_005',               icon: '\u{1F3B6}' },
-  { label: 'Dance 4',    file: 'F_Dances_006',               icon: '\u{1F3B6}' },
+  { label: 'Dance 3',    file: 'F_Dances_006',               icon: '\u{1F3B6}' },
+  { label: 'Celebrate',  file: 'rpm-celebrate',              icon: '\u{1F389}' },
+  { label: 'Hip Hop',    file: 'rpm-hiphop',                 icon: '\u{1F917}' },
+  { label: 'Laughing',   file: 'rpm-laughing',               icon: '\u{1F602}' },
+  { label: 'Twerk',      file: 'rpm-twerk',                  icon: '\u{1F351}' },
+  { label: 'Walk',       file: 'rpm-walk',                   icon: '\u{1F6B6}' },
+  { label: 'Wave',       file: 'rpm-wave',                   icon: '\u{1F44B}' },
   { label: 'Angry',      file: 'M_Standing_Expressions_012', icon: '\u{1F621}' },
   { label: 'Laugh',      file: 'M_Standing_Expressions_007', icon: '\u{1F606}' },
+  { label: 'Lose',       file: 'M_Standing_Expressions_012', icon: '\u{1F630}' },
   { label: 'Talking',    file: 'F_Talking_Variations_001',   icon: '\u{1F5E3}' },
 ];
 
@@ -752,7 +758,7 @@ const CLIP_FILES = [
 // still fire their own animation regardless of what is equipped.
 const LOADOUT_MAX = 4;
 const LOADOUT_KEY = 'sbj.loadout.v2';
-let LOADOUT = ['Dance 1', 'Dance 2', 'Dance 3', 'Dance 4'];
+let LOADOUT = ['Dance 1', 'Hip Hop', 'Celebrate', 'Laughing'];
 try {
   const saved = JSON.parse(localStorage.getItem(LOADOUT_KEY) || 'null');
   // a loadout saved before a move was removed must not equip it any more
@@ -767,9 +773,9 @@ const saveLoadout = () => { try { localStorage.setItem(LOADOUT_KEY, JSON.stringi
 // integration will bind to — the realtime layer already emits round:result and
 // action:committed, so this is the shape, not a guess.
 const GAME_EVENTS = [
-  { event: 'Win a hand',       reaction: 'Dance 1'       },
-  { event: 'Win the game',     reaction: 'Dance 2'       },
-  { event: 'Lose a hand',      reaction: 'Dance 3'       },
+  { event: 'Win a hand',       reaction: 'Celebrate'     },
+  { event: 'Win the game',     reaction: 'Dance 1'       },
+  { event: 'Lose a hand',      reaction: 'Lose'          },
   { event: 'Opponent misses',  reaction: 'Laugh'         },
   { event: 'Annoyed',          reaction: 'Angry'         },
 ];
@@ -779,7 +785,9 @@ const GAME_EVENTS = [
 
 const EFFECTS = {
   'Angry':     { kind: 'steam', anchor: 'ears',  every: 95,  dur: 1400 },
+  'Celebrate': { kind: 'star',  anchor: 'crown', every: 110, dur: 1300 },
   'Laugh':     { kind: 'drop',  anchor: 'brow',  every: 300, dur: 1100 },
+  'Laughing':  { kind: 'drop',  anchor: 'brow',  every: 300, dur: 1100 },
 };
 
 // Facial expression per reaction. The avatar exposes mouthSmile, mouthOpen and
@@ -790,9 +798,15 @@ const FACES = {
   'Dance 1':       { smile: .60, open: .12, squint: 0   },
   'Dance 2':       { smile: .65, open: .15, squint: 0   },
   'Dance 3':       { smile: .60, open: .12, squint: 0   },
-  'Dance 4':       { smile: .65, open: .15, squint: 0   },
+  'Celebrate':     { smile: .90, open: .40, squint: .10 },
+  'Hip Hop':       { smile: .70, open: .20, squint: 0   },
+  'Laughing':      { smile: 1,   open: .55, squint: .35 },
+  'Twerk':         { smile: .75, open: .25, squint: 0   },
+  'Walk':          { smile: .40, open: .10, squint: 0   },
+  'Wave':          { smile: .60, open: .15, squint: 0   },
   'Angry':         { smile: 0,   open: .15, squint: .45 },
   'Laugh':         { smile: 1,   open: .55, squint: .35 },
+  'Lose':          { smile: 0,   open: .08, squint: .50 },
   'Talking':       { smile: .30, open: .20, squint: 0   },
 };
 
