@@ -122,25 +122,36 @@
     border: none; cursor: pointer;
   }
 
-  /* ===== dev overlay ===== */
-  #devtoggle {
-    position: fixed; right: 8px; top: 62%; z-index: 40;   /* empty felt: clear of the deck row and the hand */
-    width: 40px; height: 40px; border-radius: 12px; font-size: 15px; cursor: pointer;
-    background: var(--panel); color: var(--lime); border: 1px solid var(--line);
-  }
-  #dev { position: fixed; inset: 0; z-index: 35; pointer-events: none; }
+  /* ===== dev overlay — a side drawer sliding in from the LEFT, mirroring
+     the Customize drawer's own pattern on the right so the two never
+     compete for the same edge. ===== */
+  #dev { position: fixed; inset: 0; z-index: 35; display: none; background: rgba(2,10,5,.35); }
+  #dev:not(.off) { display: flex; }
   #dev.off { display: none; }
-  .panel {
-    position: absolute; background: var(--panel); border: 1px solid var(--line);
-    border-radius: 12px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); pointer-events: auto;
+  #devBackdrop { position: absolute; inset: 0; }
+  #devDrawer {
+    position: relative; width: min(88vw, 320px); height: 100%;
+    background: linear-gradient(180deg, #0e1f14, #081209);
+    border: 1px solid var(--line); border-left: none;
+    border-radius: 0 22px 22px 0; box-shadow: 14px 0 40px rgba(0,0,0,.6);
+    display: flex; flex-direction: column;
   }
-  #hud { top: calc(8px + env(safe-area-inset-top)); left: 8px; padding: 8px 10px; min-width: 156px; }
+  #devBar {
+    flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between;
+    padding: calc(10px + env(safe-area-inset-top)) 14px 12px; border-bottom: 1px solid var(--line);
+  }
+  #devBar span { font-weight: 800; font-size: 14px; color: var(--text); }
+  #devClose {
+    border: none; border-radius: 999px; padding: 7px 16px; font: inherit; font-weight: 800; font-size: 12px;
+    background: linear-gradient(180deg, #d4ff5e, var(--lime)); color: #10240a; cursor: pointer;
+  }
+  #devBody { flex: 1 1 auto; overflow-y: auto; padding: 12px 14px calc(20px + env(safe-area-inset-bottom)); }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; margin-bottom: 12px; }
   #hud h2, #ui h2 { margin: 0 0 7px; font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--lime); font-weight: 700; }
   .row { display: flex; justify-content: space-between; gap: 12px; padding: 1px 0; font-size: 12px; }
   .row span:first-child { color: var(--muted); }
   .row span:last-child { font-variant-numeric: tabular-nums; font-weight: 600; }
   .fps-good { color: var(--good); } .fps-warn { color: var(--warn); } .fps-bad { color: var(--bad); }
-  #ui { right: 8px; top: calc(8px + env(safe-area-inset-top)); padding: 8px 10px; width: 170px; max-height: 74vh; overflow-y: auto; }
   .grp { margin-bottom: 10px; }
   .grp > label { display: block; font-size: 9px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 4px; }
   .seg { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -157,7 +168,7 @@
   input[type=range] { accent-color: var(--lime); }
   .grp b { color: var(--lime); font-variant-numeric: tabular-nums; }
   #ui .note { font-size: 10px; margin-top: 6px; }
-  #results { left: 8px; bottom: 56px; padding: 8px 10px; display: none; max-width: min(390px, calc(100vw - 16px)); }
+  #results { display: none; }
   #results.on { display: block; }
   table { border-collapse: collapse; width: 100%; font-size: 11px; }
   th, td { text-align: right; padding: 2px 6px; border-bottom: 1px solid rgba(255,255,255,.08); font-variant-numeric: tabular-nums; }
@@ -227,37 +238,23 @@
   #err { position: fixed; left: 10px; right: 10px; top: 30%; padding: 13px; background: #3a0f0f; border: 1px solid #ff6b6b;
          border-radius: 10px; display: none; white-space: pre-wrap; font-family: ui-monospace, Menlo, monospace; font-size: 11px; z-index: 70; }
 
-  /* ===== customize overlay — a bottom sheet, not a full-screen takeover.
-     The avatar keeps rendering (and updating live) behind/above it, visible
-     through the dimmed backdrop and the gap above the sheet — a person can
-     see their avatar change as they pick things, instead of customizing
-     blind and only finding out on "Done". Tapping the dimmed area closes it,
-     same as any mobile bottom-sheet pattern. ===== */
-  /* The sheet only covers the LOWER half of the screen — the character
-     stands roughly in the upper-middle of the felt (see TARGET_FRACTION/
-     FOOT_LINE), so capping the sheet around half height keeps the avatar
-     fully visible above it, and the backdrop is barely dimmed so it actually
-     reads clearly, not as a dark silhouette. This is the whole point of the
-     feature: you should be able to watch your avatar change as you tap
-     things, not just find out after closing the panel. */
+  /* ===== customize overlay — a side drawer sliding in from the RIGHT
+     (mirrors the Settings drawer on the left, see #devDrawer). Tapping the
+     dimmed backdrop closes it, same as the Settings drawer. ===== */
   #customizeOverlay {
-    position: fixed; inset: 0; z-index: 80; background: rgba(2,10,5,.22);
-    display: none; flex-direction: column; justify-content: flex-end;
+    position: fixed; inset: 0; z-index: 80; background: rgba(2,10,5,.35);
+    display: none; justify-content: flex-end;
   }
   #customizeOverlay.on { display: flex; }
   #customizeSheet {
-    flex: 0 1 auto; max-height: 50vh; display: flex; flex-direction: column;
+    width: min(88vw, 400px); height: 100%; display: flex; flex-direction: column;
     background: linear-gradient(180deg, #0e1f14, #081209);
-    border: 1px solid var(--line); border-bottom: none;
-    border-radius: 22px 22px 0 0; box-shadow: 0 -14px 40px rgba(0,0,0,.6);
-  }
-  #customizeSheet::before {
-    content: ''; width: 38px; height: 4px; border-radius: 3px; background: var(--line);
-    margin: 10px auto 0; flex: 0 0 auto;
+    border: 1px solid var(--line); border-right: none;
+    border-radius: 22px 0 0 22px; box-shadow: -14px 0 40px rgba(0,0,0,.6);
   }
   #customizeBar {
     flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 16px 12px; border-bottom: 1px solid var(--line);
+    padding: calc(10px + env(safe-area-inset-top)) 16px 12px; border-bottom: 1px solid var(--line);
   }
   #customizeBar span { font-weight: 800; font-size: 15px; color: var(--text); }
   #customizeClose2 {
@@ -384,6 +381,7 @@
     <div id="score"><div>YOU <b>2</b></div><div>MASTER <b>0</b></div></div>
     <div id="logo"><div class="s">STREET</div><div class="b">BLACKJACK<sup>™</sup></div></div>
     <button class="icon-btn" id="customizeToggle" aria-label="Customize avatar">📷</button>
+    <button class="icon-btn" id="devtoggle" aria-label="Toggle dev overlay">⚙</button>
   </div>
 
   <div id="felt">
@@ -420,99 +418,108 @@
   </div>
 </div>
 
-<button id="devtoggle" aria-label="Toggle dev overlay" hidden>⚙</button>
-
 <div id="dev" class="off">
-  <div class="panel" id="hud">
-    <h2>Performance</h2>
-    <div class="row"><span>FPS</span><span id="m-fps">—</span></div>
-    <div class="row"><span>Frame</span><span id="m-frame">—</span></div>
-    <div class="row"><span>5% low</span><span id="m-worst">—</span></div>
-    <div class="row"><span>Draw calls</span><span id="m-calls">—</span></div>
-    <div class="row"><span>Triangles</span><span id="m-tris">—</span></div>
-    <div class="row"><span>JS heap</span><span id="m-heap">—</span></div>
-    <div class="row"><span>Characters</span><span id="m-chars">—</span></div>
-    <div class="row"><span>On-screen</span><span id="m-size">—</span></div>
-  </div>
+  <div id="devBackdrop"></div>
+  <div id="devDrawer">
+    <div id="devBar">
+      <span>Settings</span>
+      <button id="devClose">Done</button>
+    </div>
+    <div id="devBody">
 
-  <div class="panel" id="ui">
-    <h2>Spike controls</h2>
-    <div class="grp"><label>Characters</label>
-      <div class="seg" id="seg-count">
-        <button data-n="1" aria-pressed="true">1</button>
-        <button data-n="2" aria-pressed="false">2</button>
-        <button data-n="4" aria-pressed="false">4</button>
-        <button data-n="6" aria-pressed="false">6</button>
+      <div class="panel" id="hud">
+        <h2>Performance</h2>
+        <div class="row"><span>FPS</span><span id="m-fps">—</span></div>
+        <div class="row"><span>Frame</span><span id="m-frame">—</span></div>
+        <div class="row"><span>5% low</span><span id="m-worst">—</span></div>
+        <div class="row"><span>Draw calls</span><span id="m-calls">—</span></div>
+        <div class="row"><span>Triangles</span><span id="m-tris">—</span></div>
+        <div class="row"><span>JS heap</span><span id="m-heap">—</span></div>
+        <div class="row"><span>Characters</span><span id="m-chars">—</span></div>
+        <div class="row"><span>On-screen</span><span id="m-size">—</span></div>
       </div>
-    </div>
-    <div class="grp">
-      <label>Avatar (fallback picker)</label>
-      <div class="seg" id="seg-avatar">
-        <button data-m="male" aria-pressed="true">Male</button>
-        <button data-m="female" aria-pressed="false">Female</button>
+
+      <div class="panel" id="ui">
+        <h2>Spike controls</h2>
+        <div class="grp"><label>Characters</label>
+          <div class="seg" id="seg-count">
+            <button data-n="1" aria-pressed="true">1</button>
+            <button data-n="2" aria-pressed="false">2</button>
+            <button data-n="4" aria-pressed="false">4</button>
+            <button data-n="6" aria-pressed="false">6</button>
+          </div>
+        </div>
+        <div class="grp">
+          <label>Avatar (fallback picker)</label>
+          <div class="seg" id="seg-avatar">
+            <button data-m="male" aria-pressed="true">Male</button>
+            <button data-m="female" aria-pressed="false">Female</button>
+          </div>
+        </div>
+
+        <div class="grp">
+          <label>Game events</label>
+          <button class="act primary" id="auto-demo">▶ Auto demo</button>
+          <div id="event-buttons"></div>
+        </div>
+
+        <div class="grp"><label>Raw reactions</label><div id="clip-buttons"></div></div>
+        <div class="grp"><button class="act" id="reset-idle">&#8634; Reset / return to idle</button></div>
+        <div class="grp">
+          <label>Framing</label>
+          <div class="seg" id="seg-framing">
+            <button data-f="full" aria-pressed="true">Full body</button>
+            <button data-f="portrait" aria-pressed="false">Portrait</button>
+          </div>
+        </div>
+
+        <div class="grp" id="grp-size">
+          <label>Character size <b id="v-size2">26%</b></label>
+          <input type="range" id="opt-size" min="0.14" max="0.55" step="0.01" value="0.26" style="width:100%">
+        </div>
+
+        <div class="grp">
+          <label>Head size <b id="v-head">1.00x</b></label>
+          <input type="range" id="opt-head" min="1" max="3.2" step="0.05" value="1" style="width:100%">
+        </div>
+
+        <div class="grp" id="grp-face" hidden>
+          <label>Face size <b id="v-face">14%</b></label>
+          <input type="range" id="opt-face" min="0.06" max="0.34" step="0.01" value="0.14" style="width:100%">
+        </div>
+
+        <div class="grp">
+          <label>Resting opacity <b id="v-alpha">0%</b></label>
+          <input type="range" id="opt-alpha" min="0" max="1" step="0.05" value="0" style="width:100%">
+        </div>
+
+        <div class="grp">
+          <label>Fade out <b id="v-fade">0.45s</b></label>
+          <input type="range" id="opt-fade" min="0.1" max="1.2" step="0.05" value="0.45" style="width:100%">
+        </div>
+
+        <div class="grp"><label>Options</label>
+          <label class="chk"><input type="checkbox" id="opt-vfx" checked> Cartoon effects</label>
+          <label class="chk"><input type="checkbox" id="opt-fadeidle"> Fade out after reaction</label>
+          <label class="chk"><input type="checkbox" id="opt-ondemand"> Render on demand</label>
+          <label class="chk"><input type="checkbox" id="opt-toon" checked> Toon shading</label>
+          <label class="chk"><input type="checkbox" id="opt-shadow"> Contact shadow</label>
+        </div>
+        <div class="grp"><label>Benchmark</label>
+          <button class="act primary" id="run-bench">▶ Sweep 1→2→4→6</button>
+        </div>
       </div>
-    </div>
 
-    <div class="grp">
-      <label>Game events</label>
-      <button class="act primary" id="auto-demo">▶ Auto demo</button>
-      <div id="event-buttons"></div>
-    </div>
-
-    <div class="grp"><label>Raw reactions</label><div id="clip-buttons"></div></div>
-    <div class="grp"><button class="act" id="reset-idle">&#8634; Reset / return to idle</button></div>
-    <div class="grp">
-      <label>Framing</label>
-      <div class="seg" id="seg-framing">
-        <button data-f="full" aria-pressed="true">Full body</button>
-        <button data-f="portrait" aria-pressed="false">Portrait</button>
+      <div class="panel" id="results">
+        <h2>Benchmark</h2>
+        <table id="res-table">
+          <thead><tr><th>Chars</th><th>FPS</th><th>5% low</th><th>Calls</th><th>Tris</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div id="verdict"></div>
       </div>
-    </div>
 
-    <div class="grp" id="grp-size">
-      <label>Character size <b id="v-size2">26%</b></label>
-      <input type="range" id="opt-size" min="0.14" max="0.55" step="0.01" value="0.26" style="width:100%">
     </div>
-
-    <div class="grp">
-      <label>Head size <b id="v-head">1.00x</b></label>
-      <input type="range" id="opt-head" min="1" max="3.2" step="0.05" value="1" style="width:100%">
-    </div>
-
-    <div class="grp" id="grp-face" hidden>
-      <label>Face size <b id="v-face">14%</b></label>
-      <input type="range" id="opt-face" min="0.06" max="0.34" step="0.01" value="0.14" style="width:100%">
-    </div>
-
-    <div class="grp">
-      <label>Resting opacity <b id="v-alpha">0%</b></label>
-      <input type="range" id="opt-alpha" min="0" max="1" step="0.05" value="0" style="width:100%">
-    </div>
-
-    <div class="grp">
-      <label>Fade out <b id="v-fade">0.45s</b></label>
-      <input type="range" id="opt-fade" min="0.1" max="1.2" step="0.05" value="0.45" style="width:100%">
-    </div>
-
-    <div class="grp"><label>Options</label>
-      <label class="chk"><input type="checkbox" id="opt-vfx" checked> Cartoon effects</label>
-      <label class="chk"><input type="checkbox" id="opt-fadeidle"> Fade out after reaction</label>
-      <label class="chk"><input type="checkbox" id="opt-ondemand"> Render on demand</label>
-      <label class="chk"><input type="checkbox" id="opt-toon" checked> Toon shading</label>
-      <label class="chk"><input type="checkbox" id="opt-shadow"> Contact shadow</label>
-    </div>
-    <div class="grp"><label>Benchmark</label>
-      <button class="act primary" id="run-bench">▶ Sweep 1→2→4→6</button>
-    </div>
-  </div>
-
-  <div class="panel" id="results">
-    <h2>Benchmark</h2>
-    <table id="res-table">
-      <thead><tr><th>Chars</th><th>FPS</th><th>5% low</th><th>Calls</th><th>Tris</th></tr></thead>
-      <tbody></tbody>
-    </table>
-    <div id="verdict"></div>
   </div>
 </div>
 
@@ -525,8 +532,7 @@
     <div id="customizeBody">
 
       <p class="cz-intro">Take or upload a selfie and we'll match your avatar's skin tone, glasses and
-        facial hair automatically. Use Fine-tune details below for hair, eye colour and face shape.
-        Your avatar keeps playing behind this panel, so you can watch it change.</p>
+        facial hair automatically. Use Fine-tune details below for hair, eye colour and face shape.</p>
 
       <div class="cz-card" id="uploadCard">
         <h2 class="cz-h2"><span class="cz-step">1</span>Your photo</h2>
@@ -2370,6 +2376,8 @@ $('customizeOverlay').addEventListener('click', e => {
 
 $('run-bench').onclick = runBench;
 $('devtoggle').onclick = () => $('dev').classList.toggle('off');
+$('devClose').onclick = () => $('dev').classList.add('off');
+$('devBackdrop').onclick = () => $('dev').classList.add('off');
 addEventListener('resize', resize);
 addEventListener('orientationchange', () => setTimeout(resize, 250));
 
@@ -2388,12 +2396,6 @@ window.__spike = { THREE,
                    get onScreenPct(){return onScreenPct} };
 
 renderQuickbar();
-
-// The ⚙ dev/QA panel (perf HUD, character-count stress test, animation
-// tuning knobs, benchmark sweep) is testing tooling, not part of the real
-// game — hidden from real users by default, reachable by adding ?dev=1 to
-// the URL when it's actually needed for tuning/QA.
-if (new URLSearchParams(location.search).has('dev')) $('devtoggle').hidden = false;
 
 (async function start() {
   try {
