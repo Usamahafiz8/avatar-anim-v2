@@ -420,7 +420,7 @@
   </div>
 </div>
 
-<button id="devtoggle" aria-label="Toggle dev overlay">⚙</button>
+<button id="devtoggle" aria-label="Toggle dev overlay" hidden>⚙</button>
 
 <div id="dev" class="off">
   <div class="panel" id="hud">
@@ -496,7 +496,7 @@
 
     <div class="grp"><label>Options</label>
       <label class="chk"><input type="checkbox" id="opt-vfx" checked> Cartoon effects</label>
-      <label class="chk"><input type="checkbox" id="opt-fadeidle" checked> Fade out after reaction</label>
+      <label class="chk"><input type="checkbox" id="opt-fadeidle"> Fade out after reaction</label>
       <label class="chk"><input type="checkbox" id="opt-ondemand"> Render on demand</label>
       <label class="chk"><input type="checkbox" id="opt-toon" checked> Toon shading</label>
       <label class="chk"><input type="checkbox" id="opt-shadow"> Contact shadow</label>
@@ -1124,9 +1124,11 @@ function applyHeadScale(a) { if (a.headBone) a.headBone.scale.setScalar(HEAD_SCA
 
 // Founder note: "Also fade away." The character eases out after its reaction
 // and eases back in when the next one fires, so the table is not permanently
-// occupied by a standing figure.
-let FADE_OUT_IDLE = true;
-let IDLE_ALPHA = 0;          // what it settles to between reactions
+// occupied by a standing figure. Defaulted OFF for now (explicit request,
+// 2026) — the avatar stays fully visible at idle instead; still a live
+// toggle in the ?dev=1 panel if this comes back later.
+let FADE_OUT_IDLE = false;
+let IDLE_ALPHA = 0;          // what it settles to between reactions, only when FADE_OUT_IDLE is on
 
 function setAlpha(a, v) {
   for (const m of a.meshes) {
@@ -2386,6 +2388,12 @@ window.__spike = { THREE,
                    get onScreenPct(){return onScreenPct} };
 
 renderQuickbar();
+
+// The ⚙ dev/QA panel (perf HUD, character-count stress test, animation
+// tuning knobs, benchmark sweep) is testing tooling, not part of the real
+// game — hidden from real users by default, reachable by adding ?dev=1 to
+// the URL when it's actually needed for tuning/QA.
+if (new URLSearchParams(location.search).has('dev')) $('devtoggle').hidden = false;
 
 (async function start() {
   try {
