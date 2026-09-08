@@ -1664,6 +1664,43 @@ const BEARD_STYLES = {
     ],
     density: 0.97, colorMul: 1,
   },
+  // Four more common real-world shapes, built from the same jaw-hugging
+  // ellipsoid pieces as the styles above rather than new geometry — only the
+  // pos/scale per part changes to trace a different outline of the jaw. A
+  // first pass sized these smaller than the styles above and they came out
+  // essentially invisible on screenshot (nothing to read at table scale) —
+  // rescaled to match full's proven mustache/chin part sizes instead of
+  // inventing smaller ones.
+  mustache: {
+    parts: [
+      { pos: [0, 0.030, 0.108], scale: [0.038, 0.017, 0.020] },
+    ],
+    density: 0.95, colorMul: 1,
+  },
+  vandyke: {
+    parts: [
+      { pos: [0, 0.030, 0.108], scale: [0.036, 0.016, 0.019] },
+      { pos: [0, -0.015, 0.069], scale: [0.028, 0.026, 0.020] },
+    ],
+    density: 0.90, colorMul: 1,
+  },
+  muttonchops: {
+    parts: [
+      { pos: [0.032, 0.005, 0.087], scale: [0.032, 0.038, 0.028], rotZ: -0.18 },
+      { pos: [-0.032, 0.005, 0.087], scale: [0.032, 0.038, 0.028], rotZ: 0.18 },
+      { pos: [0, 0.030, 0.108], scale: [0.036, 0.016, 0.019] },
+    ],
+    density: 0.90, colorMul: 1,
+  },
+  circle: {
+    parts: [
+      { pos: [0, -0.015, 0.069], scale: [0.028, 0.026, 0.020] },
+      { pos: [0.020, 0.004, 0.086], scale: [0.018, 0.024, 0.030] },
+      { pos: [-0.020, 0.004, 0.086], scale: [0.018, 0.024, 0.030] },
+      { pos: [0, 0.030, 0.108], scale: [0.036, 0.016, 0.019] },
+    ],
+    density: 0.90, colorMul: 1,
+  },
 };
 const _beardMapCache = new Map();
 function beardHairMap(density, key) {
@@ -1989,11 +2026,16 @@ function detectFacialHair(ctx, at, skin, faceHalf) {
 }
 // Maps measured beard coverage to the BEARD_STYLES preset with the closest
 // `density` — same idea as nearestPreset() for colour swatches, just against
-// a coverage estimate instead of an exact value.
+// a coverage estimate instead of an exact value. Restricted to the
+// full-face coverage gradient (thin..full) on purpose: Mustache/Van
+// Dyke/Mutton Chops/Circle are distinct SHAPES, not points on that same
+// density scale, so a photo with a thick beard must never get mapped to
+// "Mustache" just because its coverage number happens to land nearby.
+const BEARD_COVERAGE_GRADIENT = ['thin', 'stubble', 'goatee', 'medium', 'full'];
 function nearestBeardStyle(coverage) {
   let best = 'thin', bestDist = Infinity;
-  for (const [key, cfg] of Object.entries(BEARD_STYLES)) {
-    const d = Math.abs(cfg.density - coverage);
+  for (const key of BEARD_COVERAGE_GRADIENT) {
+    const d = Math.abs(BEARD_STYLES[key].density - coverage);
     if (d < bestDist) { bestDist = d; best = key; }
   }
   return best;
@@ -2188,6 +2230,8 @@ const BEARD_PRESETS = [
   { key: 'none', label: 'None' }, { key: 'thin', label: 'Thin' },
   { key: 'stubble', label: 'Stubble' }, { key: 'goatee', label: 'Goatee' },
   { key: 'medium', label: 'Medium' }, { key: 'full', label: 'Full' },
+  { key: 'mustache', label: 'Mustache' }, { key: 'vandyke', label: 'Van Dyke' },
+  { key: 'muttonchops', label: 'Mutton Chops' }, { key: 'circle', label: 'Circle' },
 ];
 const HAIR_STYLE_PRESETS = [
   { key: 'default', label: 'Default' }, { key: 'bald', label: 'Bald' },
