@@ -228,68 +228,131 @@
   #err { position: fixed; left: 10px; right: 10px; top: 30%; padding: 13px; background: #3a0f0f; border: 1px solid #ff6b6b;
          border-radius: 10px; display: none; white-space: pre-wrap; font-family: ui-monospace, Menlo, monospace; font-size: 11px; z-index: 70; }
 
-  /* ===== customize overlay — selfie upload, AI face analysis, avatar
-     personalisation. Applies directly to the avatars already on the felt —
-     there is no separate preview scene here (unlike the old demo.html). ===== */
-  #customizeOverlay { position: fixed; inset: 0; z-index: 80; background: rgba(2,6,3,.92); display: none; flex-direction: column; }
+  /* ===== customize overlay — a bottom sheet, not a full-screen takeover.
+     The avatar keeps rendering (and updating live) behind/above it, visible
+     through the dimmed backdrop and the gap above the sheet — a person can
+     see their avatar change as they pick things, instead of customizing
+     blind and only finding out on "Done". Tapping the dimmed area closes it,
+     same as any mobile bottom-sheet pattern. ===== */
+  /* The sheet only covers the LOWER half of the screen — the character
+     stands roughly in the upper-middle of the felt (see TARGET_FRACTION/
+     FOOT_LINE), so capping the sheet around half height keeps the avatar
+     fully visible above it, and the backdrop is barely dimmed so it actually
+     reads clearly, not as a dark silhouette. This is the whole point of the
+     feature: you should be able to watch your avatar change as you tap
+     things, not just find out after closing the panel. */
+  #customizeOverlay {
+    position: fixed; inset: 0; z-index: 80; background: rgba(2,10,5,.22);
+    display: none; flex-direction: column; justify-content: flex-end;
+  }
   #customizeOverlay.on { display: flex; }
+  #customizeSheet {
+    flex: 0 1 auto; max-height: 50vh; display: flex; flex-direction: column;
+    background: linear-gradient(180deg, #0e1f14, #081209);
+    border: 1px solid var(--line); border-bottom: none;
+    border-radius: 22px 22px 0 0; box-shadow: 0 -14px 40px rgba(0,0,0,.6);
+  }
+  #customizeSheet::before {
+    content: ''; width: 38px; height: 4px; border-radius: 3px; background: var(--line);
+    margin: 10px auto 0; flex: 0 0 auto;
+  }
   #customizeBar {
     flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between;
-    padding: calc(8px + env(safe-area-inset-top)) 12px 8px; background: var(--bar);
+    padding: 10px 16px 12px; border-bottom: 1px solid var(--line);
   }
-  #customizeBar span { font-weight: 800; font-size: 12px; letter-spacing: .05em; color: var(--lime); text-transform: uppercase; }
+  #customizeBar span { font-weight: 800; font-size: 15px; color: var(--text); }
   #customizeClose2 {
-    border: none; border-radius: 999px; padding: 7px 16px; font: inherit; font-weight: 800; font-size: 12px;
+    border: none; border-radius: 999px; padding: 8px 18px; font: inherit; font-weight: 800; font-size: 12px;
     background: linear-gradient(180deg, #d4ff5e, var(--lime)); color: #10240a; cursor: pointer;
   }
-  #customizeBody { flex: 1 1 auto; overflow-y: auto; padding: 14px 14px calc(24px + env(safe-area-inset-bottom)); }
+  #customizeBody { flex: 1 1 auto; overflow-y: auto; padding: 16px 16px calc(28px + env(safe-area-inset-bottom)); }
+  .cz-intro { max-width: 420px; margin: 0 auto 14px; font-size: 12.5px; line-height: 1.5; color: var(--muted); text-align: center; }
 
   .cz-card { max-width: 420px; margin: 0 auto 14px; background: var(--panel); border: 1px solid var(--line);
     border-radius: 16px; padding: 16px; }
-  .cz-h2 { font-size: 10.5px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase;
-    color: var(--gold); margin: 0 0 12px; }
-  .cz-btn { display: block; width: 100%; padding: 12px; border-radius: 12px; font: inherit; font-size: 13px;
-    font-weight: 800; cursor: pointer; border: 1px solid var(--line); text-align: center; color: var(--text);
+  .cz-h2 { font-size: 15px; font-weight: 800; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
+  .cz-h2 .cz-step { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%;
+    background: var(--lime); color: #10240a; font-size: 11px; font-weight: 900; flex: 0 0 auto; }
+  .cz-sub { font-size: 11.5px; color: var(--muted); margin: 0 0 13px; }
+
+  /* Big, friendly source buttons: icon + two lines of text, generous tap target */
+  .cz-btn { display: flex; align-items: center; gap: 12px; width: 100%; padding: 13px 14px; border-radius: 14px;
+    font: inherit; cursor: pointer; border: 1px solid var(--line); text-align: left; color: var(--text);
     background: rgba(255,255,255,.05); }
+  .cz-btn .cz-ic { font-size: 22px; flex: 0 0 auto; line-height: 1; }
+  .cz-btn .cz-tx { display: flex; flex-direction: column; gap: 1px; }
+  .cz-btn .cz-tx b { font-size: 13.5px; font-weight: 800; }
+  .cz-btn .cz-tx small { font-size: 10.5px; color: var(--muted); font-weight: 600; }
   .cz-btn.primary { background: linear-gradient(180deg, #d4ff5e, var(--lime)); color: #10240a; border: none; }
+  .cz-btn.primary .cz-tx small { color: rgba(16,36,10,.65); }
   .cz-btn.primary:disabled { background: rgba(194,245,63,.18); color: rgba(238,247,238,.35); cursor: not-allowed; }
-  .cz-btn + .cz-btn { margin-top: 8px; }
-  .cz-srcRow { display: flex; gap: 8px; } .cz-srcRow .cz-btn { flex: 1; }
+  .cz-btn.primary:disabled .cz-tx small { color: rgba(238,247,238,.25); }
+  .cz-btn.center { justify-content: center; text-align: center; }
+  .cz-btn + .cz-btn { margin-top: 9px; }
   #selfie { display: none; }
-  .cz-msg { font-size: 12px; line-height: 1.5; margin-top: 10px; padding: 9px 11px; border-radius: 9px; display: none; }
+  .cz-msg { font-size: 12.5px; line-height: 1.5; margin-top: 10px; padding: 10px 12px; border-radius: 10px; display: none; }
   .cz-msg.show { display: block; background: rgba(255,255,255,.05); }
   .cz-msg.show.error { background: rgba(255,107,107,.12); color: var(--bad); border: 1px solid rgba(255,107,107,.3); }
   .cz-msg.show.ok { background: rgba(110,231,135,.12); color: var(--good); border: 1px solid rgba(110,231,135,.3); }
-  .cz-link { color: var(--lime); font-size: 12px; font-weight: 700; text-align: center; display: block;
-    margin-top: 12px; cursor: pointer; background: none; border: none; font: inherit; width: 100%; }
+  .cz-link { color: var(--lime); font-size: 12.5px; font-weight: 700; text-align: center; display: block;
+    margin-top: 13px; cursor: pointer; background: none; border: none; font: inherit; width: 100%; }
   .cz-seg { display: flex; gap: 6px; margin-top: 10px; background: rgba(0,0,0,.2); padding: 4px; border-radius: 12px; }
   .cz-seg[hidden] { display: none; }
-  .cz-seg button { flex: 1; padding: 8px; border-radius: 9px; border: none; background: transparent; color: var(--muted);
-    font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
+  .cz-seg button { flex: 1; padding: 9px; border-radius: 9px; border: none; background: transparent; color: var(--muted);
+    font: inherit; font-size: 11.5px; font-weight: 700; cursor: pointer; }
   .cz-seg button[aria-pressed="true"] { background: var(--lime); color: #10240a; }
   .cz-picks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .cz-pick { aspect-ratio: 1; border-radius: 12px; cursor: pointer; border: 2px solid transparent;
-    background: radial-gradient(ellipse at 50% 32%, #245c3a, #0c2417); display: grid; place-items: end center; padding-bottom: 6px; }
-  .cz-pick span { font-size: 9px; font-weight: 800; color: #eaf6ea; background: rgba(0,0,0,.5); border-radius: 5px; padding: 2px 6px; }
+    background: radial-gradient(ellipse at 50% 32%, #245c3a, #0c2417); display: grid; place-items: center;
+    font-size: 22px; }
+  .cz-pick span { font-size: 9px; font-weight: 800; color: #eaf6ea; background: rgba(0,0,0,.55); border-radius: 5px;
+    padding: 2px 6px; position: relative; top: 12px; }
   .cz-pick[data-active="true"] { border-color: var(--gold); }
-  .cz-section { padding: 13px 0; border-bottom: 1px solid var(--line); }
-  .cz-section:last-child { border-bottom: none; padding-bottom: 0; }
-  .cz-label { display: block; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
-    color: var(--gold); margin-bottom: 9px; }
-  .cz-swatchRow { display: flex; flex-wrap: wrap; gap: 9px; }
-  .cz-swatch-btn { width: 36px; height: 36px; border-radius: 50%; border: 2px solid rgba(255,255,255,.14);
+
+  /* Fine-tune: a native <details> so it's collapsed by default (most people
+     just want the auto-generated match) — cheap, accessible, no JS needed
+     for the expand/collapse itself. */
+  #customizeCard { padding: 0; overflow: hidden; }
+  #customizeCard > summary { list-style: none; cursor: pointer; padding: 15px 16px; display: flex;
+    align-items: center; justify-content: space-between; }
+  #customizeCard > summary::-webkit-details-marker { display: none; }
+  #customizeCard > summary .cz-h2 { margin: 0; }
+  #customizeCard > summary::after { content: '▾'; color: var(--muted); font-size: 13px; transition: transform .15s; }
+  #customizeCard[open] > summary::after { transform: rotate(180deg); }
+  #customizeCard[open] > summary { border-bottom: 1px solid var(--line); }
+  #customizeFineBody { padding: 6px 16px 16px; }
+
+  .cz-group { margin-top: 16px; } .cz-group:first-child { margin-top: 0; }
+  .cz-grouphead { font-size: 10px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase;
+    color: var(--gold); margin: 0 0 11px; }
+  .cz-section { margin-top: 13px; } .cz-section:first-child { margin-top: 0; }
+  .cz-label-row { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 9px; }
+  .cz-label { font-size: 11.5px; font-weight: 700; color: var(--text); }
+  .cz-current { font-size: 11px; color: var(--muted); }
+  .cz-swatchRow { display: flex; flex-wrap: wrap; gap: 10px; }
+  .cz-swatch-btn { width: 38px; height: 38px; border-radius: 50%; border: 2px solid rgba(255,255,255,.14);
     cursor: pointer; padding: 0; position: relative; }
   .cz-swatch-btn[aria-pressed="true"] { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(217,178,92,.35); }
   .cz-swatch-btn[aria-pressed="true"]::after { content: '✓'; position: absolute; inset: 0; display: flex;
     align-items: center; justify-content: center; color: #fff; font-size: 14px; text-shadow: 0 1px 3px rgba(0,0,0,.9); }
-  .cz-swatch-btn.shape { border-radius: 9px; width: auto; height: 32px; padding: 0 11px; background: rgba(255,255,255,.05);
-    color: var(--text); font: inherit; font-size: 11px; font-weight: 700; border: 1px solid var(--line); }
+  .cz-swatch-btn.shape { border-radius: 9px; width: auto; height: 34px; padding: 0 12px; background: rgba(255,255,255,.05);
+    color: var(--text); font: inherit; font-size: 11.5px; font-weight: 700; border: 1px solid var(--line); }
   .cz-swatch-btn.shape[aria-pressed="true"] { background: var(--lime); color: #10240a; border-color: var(--lime); }
   .cz-swatch-btn.shape[aria-pressed="true"]::after { content: none; }
-  .cz-sliderRow { margin-bottom: 14px; } .cz-sliderRow:last-child { margin-bottom: 0; }
-  .cz-sliderHead { display: flex; justify-content: space-between; margin-bottom: 7px; font-size: 12px; }
+  .cz-sliderRow { margin-top: 14px; } .cz-sliderRow:first-child { margin-top: 0; }
+  .cz-sliderHead { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; }
   .cz-sliderHead .val { color: var(--gold); font-variant-numeric: tabular-nums; }
   .cz-sliderRow input[type=range] { width: 100%; accent-color: var(--gold); }
+
+  /* Glasses: a plain on/off toggle switch reads faster than two pill buttons */
+  .cz-switchRow { display: flex; align-items: center; justify-content: space-between; }
+  .cz-switch { position: relative; width: 44px; height: 26px; flex: 0 0 auto; }
+  .cz-switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; z-index: 1; }
+  .cz-switch .track { position: absolute; inset: 0; background: rgba(255,255,255,.14); border-radius: 999px; transition: background .15s; }
+  .cz-switch .knob { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%;
+    background: #fff; transition: transform .15s; }
+  .cz-switch input:checked + .track { background: var(--lime); }
+  .cz-switch input:checked ~ .knob { transform: translateX(18px); }
 
   #cameraModal { position: fixed; inset: 0; z-index: 90; display: flex; align-items: center; justify-content: center; padding: 20px; }
   #cameraModal[hidden] { display: none; }
@@ -298,6 +361,7 @@
     border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
   #cameraVideo { display: block; width: 100%; aspect-ratio: 3/4; object-fit: cover; background: #04120b; transform: scaleX(-1); }
   #cameraControls { display: flex; gap: 10px; padding: 13px; }
+  #cameraControls .cz-btn { justify-content: center; }
   #cameraControls .cz-btn + .cz-btn { margin-top: 0; }
   #cameraMsg { padding: 0 13px 13px; font-size: 12px; color: var(--bad); display: none; }
   #cameraMsg.show { display: block; }
@@ -446,65 +510,115 @@
 </div>
 
 <div id="customizeOverlay">
-  <div id="customizeBar">
-    <span>Customize Avatar</span>
-    <button id="customizeClose2">Done</button>
-  </div>
-  <div id="customizeBody">
-
-    <div class="cz-card" id="uploadCard">
-      <h2 class="cz-h2">1. Upload selfie</h2>
-      <div class="cz-srcRow">
-        <button class="cz-btn primary" id="takePhotoBtn">&#128247; Take Photo</button>
-        <label class="cz-btn" for="selfie" id="uploadLabel">&#128247;&#65039; Upload Photo</label>
-      </div>
-      <input type="file" id="selfie" accept="image/*">
-      <button class="cz-btn primary" id="generateBtn" disabled>Generate Avatar</button>
-      <div class="cz-msg" id="uploadMsg"></div>
-      <div class="cz-seg" id="bodyTypeSwitch" hidden>
-        <button data-b="male" aria-pressed="true">Male body</button>
-        <button data-b="female" aria-pressed="false">Female body</button>
-      </div>
-      <button class="cz-link" id="usePremadeLink">Or choose a premade avatar instead</button>
+  <div id="customizeSheet">
+    <div id="customizeBar">
+      <span>Customize Avatar</span>
+      <button id="customizeClose2">Done</button>
     </div>
+    <div id="customizeBody">
 
-    <div class="cz-card" id="premadeCard" hidden>
-      <h2 class="cz-h2">Choose a premade avatar</h2>
-      <div class="cz-picks" id="picks"></div>
+      <p class="cz-intro">Take or upload a selfie and we'll shape your avatar to match you —
+        skin tone, hair, eyes and more. Your avatar keeps playing behind this panel, so you can watch it change.</p>
+
+      <div class="cz-card" id="uploadCard">
+        <h2 class="cz-h2"><span class="cz-step">1</span>Your photo</h2>
+        <button class="cz-btn primary" id="takePhotoBtn">
+          <span class="cz-ic">&#128247;</span><span class="cz-tx"><b>Take a Photo</b><small>Use your camera</small></span>
+        </button>
+        <label class="cz-btn" for="selfie" id="uploadLabel">
+          <span class="cz-ic">&#128193;</span><span class="cz-tx"><b>Upload a Photo</b><small>Choose from your device</small></span>
+        </label>
+        <input type="file" id="selfie" accept="image/*">
+        <div class="cz-msg" id="uploadMsg"></div>
+        <div class="cz-seg" id="bodyTypeSwitch" hidden>
+          <button data-b="male" aria-pressed="true">Male body</button>
+          <button data-b="female" aria-pressed="false">Female body</button>
+        </div>
+        <button class="cz-btn primary center" id="generateBtn" disabled style="margin-top:12px">Generate My Avatar</button>
+        <button class="cz-link" id="usePremadeLink">Skip this — pick a ready-made avatar instead</button>
+      </div>
+
+      <div class="cz-card" id="premadeCard" hidden>
+        <h2 class="cz-h2">Ready-made avatars</h2>
+        <p class="cz-sub">Pick one to use instead of a photo.</p>
+        <div class="cz-picks" id="picks"></div>
+      </div>
+
+      <details class="cz-card" id="customizeCard">
+        <summary><h2 class="cz-h2"><span class="cz-step">2</span>Fine-tune details</h2></summary>
+        <div id="customizeFineBody">
+          <p class="cz-sub">Optional — your photo already set these. Adjust anything that doesn't look right.</p>
+
+          <div class="cz-group">
+            <div class="cz-grouphead">Body</div>
+            <div class="cz-seg" id="custBodySeg">
+              <button data-b="male" aria-pressed="true">Male</button>
+              <button data-b="female" aria-pressed="false">Female</button>
+            </div>
+          </div>
+
+          <div class="cz-group">
+            <div class="cz-grouphead">Appearance</div>
+            <div class="cz-section">
+              <div class="cz-label-row"><span class="cz-label">Skin Tone</span></div>
+              <div class="cz-swatchRow" id="custSkin"></div>
+            </div>
+            <div class="cz-section">
+              <div class="cz-label-row"><span class="cz-label">Hair Style</span></div>
+              <div class="cz-swatchRow" id="custHairStyle"></div>
+            </div>
+            <div class="cz-section">
+              <div class="cz-label-row"><span class="cz-label">Hair Color</span></div>
+              <div class="cz-swatchRow" id="custHairColor"></div>
+            </div>
+            <div class="cz-section">
+              <div class="cz-label-row"><span class="cz-label">Eye Color</span></div>
+              <div class="cz-swatchRow" id="custEyes"></div>
+            </div>
+            <div class="cz-section">
+              <div class="cz-label-row"><span class="cz-label">Lip Color</span></div>
+              <div class="cz-swatchRow" id="custLips"></div>
+            </div>
+          </div>
+
+          <div class="cz-group">
+            <div class="cz-grouphead">Face Shape</div>
+            <div class="cz-sliderRow">
+              <div class="cz-sliderHead"><span>Jaw Width</span><span class="val" id="jawWidthVal">Neutral</span></div>
+              <input type="range" id="jawWidthSlider" min="0.8" max="1.25" step="0.01" value="1">
+            </div>
+            <div class="cz-sliderRow">
+              <div class="cz-sliderHead"><span>Face Length</span><span class="val" id="faceLengthVal">Neutral</span></div>
+              <input type="range" id="faceLengthSlider" min="0.85" max="1.2" step="0.01" value="1">
+            </div>
+          </div>
+
+          <div class="cz-group" id="custBeardSection">
+            <div class="cz-grouphead">Facial Hair</div>
+            <div class="cz-section">
+              <div class="cz-label-row"><span class="cz-label">Beard Style</span></div>
+              <div class="cz-swatchRow" id="custBeard"></div>
+            </div>
+            <div class="cz-section">
+              <div class="cz-label-row"><span class="cz-label">Beard Color</span></div>
+              <div class="cz-swatchRow" id="custBeardColor"></div>
+            </div>
+          </div>
+
+          <div class="cz-group">
+            <div class="cz-grouphead">Extras</div>
+            <div class="cz-switchRow">
+              <span class="cz-label">Glasses</span>
+              <label class="cz-switch">
+                <input type="checkbox" id="custGlassesToggle">
+                <span class="track"></span><span class="knob"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </details>
+
     </div>
-
-    <div class="cz-card" id="customizeCard">
-      <h2 class="cz-h2">2. Customize</h2>
-      <div class="cz-section">
-        <label class="cz-label">Body</label>
-        <div class="cz-seg" id="custBodySeg">
-          <button data-b="male" aria-pressed="true">Male</button>
-          <button data-b="female" aria-pressed="false">Female</button>
-        </div>
-      </div>
-      <div class="cz-section"><label class="cz-label">Skin Tone</label><div class="cz-swatchRow" id="custSkin"></div></div>
-      <div class="cz-section"><label class="cz-label">Hair Style</label><div class="cz-swatchRow" id="custHairStyle"></div></div>
-      <div class="cz-section"><label class="cz-label">Hair Color</label><div class="cz-swatchRow" id="custHairColor"></div></div>
-      <div class="cz-section"><label class="cz-label">Eye Color</label><div class="cz-swatchRow" id="custEyes"></div></div>
-      <div class="cz-section"><label class="cz-label">Lip Color</label><div class="cz-swatchRow" id="custLips"></div></div>
-      <div class="cz-section" id="custBeardSection">
-        <label class="cz-label">Beard</label><div class="cz-swatchRow" id="custBeard"></div>
-        <label class="cz-label">Beard Color</label><div class="cz-swatchRow" id="custBeardColor"></div>
-      </div>
-      <div class="cz-section"><label class="cz-label">Glasses</label><div class="cz-swatchRow" id="custGlasses"></div></div>
-      <div class="cz-section">
-        <label class="cz-label">Face Shape</label>
-        <div class="cz-sliderRow">
-          <div class="cz-sliderHead"><span>Jaw Width</span><span class="val" id="jawWidthVal">Neutral</span></div>
-          <input type="range" id="jawWidthSlider" min="0.8" max="1.25" step="0.01" value="1">
-        </div>
-        <div class="cz-sliderRow">
-          <div class="cz-sliderHead"><span>Face Length</span><span class="val" id="faceLengthVal">Neutral</span></div>
-          <input type="range" id="faceLengthSlider" min="0.85" max="1.2" step="0.01" value="1">
-        </div>
-      </div>
-    </div>
-
   </div>
 </div>
 
@@ -1227,10 +1341,23 @@ function setBodyType(next) {
   charState.bodyType = next;
   if (next !== 'male') { charState.beardStyle = 'none'; charState.beardColor = null; }
 }
+// The table's default choreography fades the character to 0% opacity at
+// idle and only pops it in for a reaction (see IDLE_ALPHA/FADE_OUT_IDLE) — a
+// nice effect for a generic demo character, but it means the avatar would be
+// INVISIBLE the whole time you're looking at the Customize panel, reading as
+// "nothing's there" / "nothing changed" even when a trait update applied
+// correctly. Called both the moment the panel opens (so there's something to
+// look at right away) and after every rebuild (so a change stays visible).
+function keepAvatarVisible() {
+  IDLE_ALPHA = 1;
+  $('opt-alpha').value = '1'; $('v-alpha').textContent = '100%';
+  avatars.forEach(a => { a.alphaTarget = 1; a.alpha = 1; setAlpha(a, 1); });
+  invalidate();
+}
 async function rebuildCharacter() {
   currentModel = charState.bodyType;
   $('loading').classList.remove('done');
-  try { await build(); } finally { $('loading').classList.add('done'); }
+  try { await build(); keepAvatarVisible(); } finally { $('loading').classList.add('done'); }
   setPressed('seg-avatar', 'm', currentModel);
 }
 
@@ -1822,9 +1949,6 @@ const BEARD_PRESETS = [
   { key: 'stubble', label: 'Stubble' }, { key: 'goatee', label: 'Goatee' },
   { key: 'medium', label: 'Medium' }, { key: 'full', label: 'Full' },
 ];
-const GLASSES_PRESETS = [
-  { key: false, label: 'None' }, { key: true, label: 'On' },
-];
 const HAIR_STYLE_PRESETS = [
   { key: 'default', label: 'Default' }, { key: 'buzz', label: 'Buzz' },
   { key: 'crop', label: 'Crop' }, { key: 'swept', label: 'Swept back' },
@@ -1867,8 +1991,7 @@ function buildCustomizeUI() {
     async i => { charState.beardStyle = i.key; await rebuildCharacter(); }, 'shape');
   renderSwatchRow('custBeardColor', HAIR_COLOR_PRESETS, i => charState.beardColor === i.hex,
     async i => { charState.beardColor = i.hex; await rebuildCharacter(); });
-  renderSwatchRow('custGlasses', GLASSES_PRESETS, i => charState.hasGlasses === i.key,
-    async i => { charState.hasGlasses = i.key; await rebuildCharacter(); }, 'shape');
+  $('custGlassesToggle').onchange = async e => { charState.hasGlasses = e.target.checked; await rebuildCharacter(); };
   const jawSlider = $('jawWidthSlider'), faceLenSlider = $('faceLengthSlider');
   jawSlider.oninput = () => { $('jawWidthVal').textContent = faceShapeLabel(Number(jawSlider.value), 'Narrower', 'Wider'); };
   jawSlider.onchange = async () => { charState.jawWidth = Number(jawSlider.value); await rebuildCharacter(); };
@@ -1903,7 +2026,7 @@ buildCustomizeUI._rerenderActive = () => {
   mark('custLips', LIP_PRESETS, 'lipColor', true);
   mark('custBeard', BEARD_PRESETS, 'beardStyle');
   mark('custBeardColor', HAIR_COLOR_PRESETS, 'beardColor');
-  mark('custGlasses', GLASSES_PRESETS, 'hasGlasses');
+  $('custGlassesToggle').checked = charState.hasGlasses;
   mark('custHairStyle', HAIR_STYLE_PRESETS, 'hairStyle');
   mark('custHairColor', HAIR_COLOR_PRESETS, 'hairColor');
   const jawSlider = $('jawWidthSlider'), faceLenSlider = $('faceLengthSlider');
@@ -2226,8 +2349,14 @@ function renderQuickbar() {
   bar.style.display = LOADOUT.length ? 'flex' : 'none';
 }
 
-$('customizeToggle').onclick = () => $('customizeOverlay').classList.add('on');
+$('customizeToggle').onclick = () => { $('customizeOverlay').classList.add('on'); keepAvatarVisible(); };
 $('customizeClose2').onclick = () => $('customizeOverlay').classList.remove('on');
+// Tap the dimmed backdrop (not the sheet itself) to close, same as any
+// mobile bottom-sheet — e.target is only the overlay element itself when the
+// click lands outside #customizeSheet's bounds.
+$('customizeOverlay').addEventListener('click', e => {
+  if (e.target.id === 'customizeOverlay') $('customizeOverlay').classList.remove('on');
+});
 
 $('run-bench').onclick = runBench;
 $('devtoggle').onclick = () => $('dev').classList.toggle('off');
