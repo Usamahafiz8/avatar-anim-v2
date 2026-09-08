@@ -403,7 +403,7 @@
     <div id="score"><div>YOU <b>2</b></div><div>MASTER <b>0</b></div></div>
     <div id="logo"><div class="s">STREET</div><div class="b">BLACKJACK<sup>™</sup></div></div>
     <button class="icon-btn" id="customizeToggle" aria-label="Customize avatar">📷</button>
-    <button class="icon-btn" id="devtoggle" aria-label="Toggle dev overlay" hidden>⚙</button>
+    <button class="icon-btn" id="devtoggle" aria-label="Toggle dev overlay">⚙</button>
   </div>
 
   <div id="felt">
@@ -2482,14 +2482,6 @@ window.__spike = { THREE,
                    get onScreenPct(){return onScreenPct} };
 
 renderQuickbar();
-
-// The ⚙ Settings drawer (perf HUD, character-count stress test, animation
-// tuning knobs, benchmark sweep) is developer/QA tooling — none of it is
-// needed to actually use the app, and it was the single biggest source of
-// "this is too complicated" feedback. Hidden from the everyday view;
-// reachable by adding ?dev=1 to the URL whenever it's genuinely needed for
-// tuning/testing.
-if (new URLSearchParams(location.search).has('dev')) $('devtoggle').hidden = false;
 
 (async function start() {
   try {
