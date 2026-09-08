@@ -777,6 +777,25 @@ const CLIP_FILES = [
   { label: 'Twerk',      file: 'F_Dances_007',                icon: '\u{1F483}' },
   { label: 'Wave',       file: 'M_Standing_Expressions_008',  icon: '\u{1F44B}' },
   { label: 'Walk',       file: 'F_Walk_002',                  icon: '\u{1F6B6}' },
+  // Second verification pass: 27 more real library files tried (untried
+  // M_Dances_00X, 14 more Standing_Expressions, 4 run/walk/jog "jump"
+  // locomotion clips). Same bar as above — screenshot-verified on this rig,
+  // sustained motion through the full clip, not just a flash. Results:
+  //   - All 4 jump/locomotion candidates looked static: they're built to
+  //     blend from a run cycle already in progress, so triggered cold from
+  //     standing idle they barely move. Cut.
+  //   - The 14 new Standing_Expressions clips repeat the same pattern as the
+  //     first pass — brief pose, settled back to neutral within ~1s. Cut,
+  //     no exceptions this round either.
+  //   - M_Dances_001/002/003/005/011 stayed dynamic but read as near-
+  //     duplicates of moves already covered above — left out to avoid a
+  //     picker full of near-identical "dance" entries.
+  //   - These four were both distinct AND sustained the motion for the
+  //     clip's full length, same as the first pass's five:
+  { label: 'Dance 2',    file: 'M_Dances_006',                icon: '\u{1F64C}' },
+  { label: 'Dance 3',    file: 'M_Dances_007',                icon: '\u{1F938}' },
+  { label: 'Dance 4',    file: 'M_Dances_009',                icon: '\u{1F3C3}' },
+  { label: 'Dance 5',    file: 'M_Dances_004',                icon: '✊' },
 ];
 
 // The player's equipped taunts. Limits PLAYER-SENT reactions only — game events
@@ -826,6 +845,10 @@ const FACES = {
   'Twerk':         { smile: .50, open: .08, squint: 0   },
   'Wave':          { smile: .60, open: 0,   squint: 0   },
   'Walk':          { smile: .15, open: 0,   squint: 0   },
+  'Dance 2':       { smile: .70, open: .15, squint: 0   },
+  'Dance 3':       { smile: .55, open: .10, squint: 0   },
+  'Dance 4':       { smile: .65, open: .20, squint: 0   },
+  'Dance 5':       { smile: .60, open: .12, squint: 0   },
   'Angry':         { smile: 0,   open: .15, squint: .45 },
   'Laugh':         { smile: 1,   open: .55, squint: .35 },
   'Lose':          { smile: 0,   open: .08, squint: .50 },

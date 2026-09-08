@@ -39,10 +39,14 @@ const AVATARS = [
 // talking/shrugging, never a laugh — no "Laugh"/"Talking" entry exists for
 // that reason. F_Dances_005 (Celebrate) was re-tried and DOES read as a
 // genuine cheer this time — a fresh look overturned the old verdict on that
-// one specifically; see CLIP_FILES in index.html for the reasoning per clip.
+// one specifically. A second pass added 4 more Dance 2-5 clips (also
+// screenshot-verified) after a further sweep of Standing_Expressions and
+// jump/locomotion clips came up empty again; see CLIP_FILES in index.html
+// for the reasoning per clip.
 const CLIPS = [
   ['idle',       ['F_Standing_Idle_001']],
-  ['dance',      ['F_Dances_001', 'F_Dances_005', 'F_Dances_007', 'M_Dances_008']],
+  ['dance',      ['F_Dances_001', 'F_Dances_005', 'F_Dances_007', 'M_Dances_008',
+                  'M_Dances_004', 'M_Dances_006', 'M_Dances_007', 'M_Dances_009']],
   ['locomotion', ['F_Walk_002']],
   ['expression', ['M_Standing_Expressions_008']],
 ];
