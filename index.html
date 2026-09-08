@@ -1494,10 +1494,20 @@ function applyFaceShape(root, { jawWidth = 1, faceLength = 1 } = {}) {
     for (let i = 0; i < pos.count; i++) {
       let w = 0;
       for (let k = 0; k < 4; k++) if (skinIdx.getComponent(i, k) === headBoneIdx) w = Math.max(w, skinWt.getComponent(i, k));
-      if (w < 0.5) continue;
+      if (w <= 0) continue;
+      // `w` (this vertex's actual Head-bone weight, 0-1) scales the edit
+      // itself rather than gating it on/off at a 0.5 cutoff. At bind pose a
+      // hard cutoff looks fine, but the Head bone rotates independently of
+      // the Neck/Spine during almost any animation — a vertex at 51% Head
+      // weight got the FULL edit while its neighbour at 49% got NONE, and
+      // that one gap was invisible until the head actually turned, at which
+      // point it read as a visible seam/crease right at the jaw-neck
+      // boundary (confirmed by screenshotting a dance in progress). Scaling
+      // continuously by `w` means adjacent vertices always differ only by
+      // however much their weights differ — no seam at any pose.
       const y = pos.getY(i);
       if (jawWidth !== 1) {
-        const influence = jawInfluence(y);
+        const influence = jawInfluence(y) * w;
         if (influence > 0) {
           const widthScale = 1 + (jawWidth - 1) * influence;
           pos.setX(i, pos.getX(i) * widthScale);
@@ -1507,8 +1517,10 @@ function applyFaceShape(root, { jawWidth = 1, faceLength = 1 } = {}) {
       if (faceLength !== 1 && y < FACE_Y.jaw) {
         // Anchor-scale from the jaw line (fixed) so the eye/cheekbone region
         // never moves — only the chin stretches, which is also where
-        // "long/short face" actually needs to read.
-        pos.setY(i, FACE_Y.jaw - (FACE_Y.jaw - y) * faceLength);
+        // "long/short face" actually needs to read. Blended toward the
+        // fully-stretched position by `w`, same reasoning as jawWidth above.
+        const stretchedY = FACE_Y.jaw - (FACE_Y.jaw - y) * faceLength;
+        pos.setY(i, y + (stretchedY - y) * w);
       }
     }
     pos.needsUpdate = true;
