@@ -185,6 +185,21 @@
   #err { display: none; width: 100%; max-width: 400px; padding: 12px; background: #3a0f0f;
     border: 1px solid #ff6b6b; border-radius: 10px; white-space: pre-wrap;
     font-family: ui-monospace, Menlo, monospace; font-size: 11px; margin-bottom: 12px; }
+
+  .srcRow { display: flex; gap: 8px; }
+  .srcRow .btn { flex: 1; }
+
+  #cameraModal { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  #cameraModal[hidden] { display: none; }
+  #cameraBackdrop { position: absolute; inset: 0; background: rgba(2,6,3,.86); backdrop-filter: blur(2px); }
+  #cameraPanel { position: relative; width: 100%; max-width: 420px;
+    background: linear-gradient(180deg, #0e1c13, #081209); border: 1px solid var(--line-strong);
+    border-radius: 20px; overflow: hidden; box-shadow: var(--shadow); }
+  #cameraVideo { display: block; width: 100%; aspect-ratio: 3/4; object-fit: cover;
+    background: #04120b; transform: scaleX(-1); }
+  #cameraControls { display: flex; gap: 10px; padding: 14px; }
+  #cameraMsg { padding: 0 14px 14px; font-size: 12.5px; color: var(--bad); display: none; }
+  #cameraMsg.show { display: block; }
 </style>
 </head>
 <body>
@@ -285,7 +300,10 @@
 
 <div class="card" id="uploadCard">
   <h2>1. Upload selfie</h2>
-  <label class="btn primary" for="selfie" id="uploadLabel">Upload Selfie</label>
+  <div class="srcRow">
+    <button class="btn primary" id="takePhotoBtn">&#128247; Take Photo</button>
+    <label class="btn ghost" for="selfie" id="uploadLabel">&#128247;&#65039; Upload Photo</label>
+  </div>
   <input type="file" id="selfie" accept="image/*">
   <button class="btn primary" id="generateBtn" disabled>Generate Avatar</button>
   <div class="msg" id="uploadMsg"></div>
@@ -295,6 +313,19 @@
   </div>
   <button class="link" id="usePremadeLink">Or choose a premade avatar instead</button>
 </div>
+
+<div id="cameraModal" hidden>
+  <div id="cameraBackdrop"></div>
+  <div id="cameraPanel">
+    <video id="cameraVideo" autoplay playsinline muted></video>
+    <div id="cameraMsg"></div>
+    <div id="cameraControls">
+      <button class="btn ghost" id="cameraCancel">Cancel</button>
+      <button class="btn primary" id="cameraCapture">Capture</button>
+    </div>
+  </div>
+</div>
+<canvas id="cameraCanvas" hidden></canvas>
 
 <div class="card" id="premadeCard" hidden>
   <h2>Choose a premade avatar</h2>
@@ -1717,18 +1748,16 @@ async function analyseSelfie(img) {
 }
 
 let pendingImg = null;
-$('selfie').onchange = async e => {
-  const f = e.target.files?.[0];
-  if (!f) return;
+
+// Shared by both photo sources — a File picked from the gallery and a frame
+// grabbed from the live camera both end up as a loaded <img>, so from here on
+// they run through the exact same validation/analysis pipeline.
+async function handleSelfieImage(img) {
   const msg = $('uploadMsg');
   msg.className = 'msg show';
   msg.textContent = 'Checking your photo…';
   $('generateBtn').disabled = true;
   pendingImg = null;
-
-  const img = new Image();
-  img.src = URL.createObjectURL(f);
-  await new Promise(r => { img.onload = r; img.onerror = r; });
 
   try {
     const out = await analyseSelfie(img);
@@ -1766,9 +1795,66 @@ $('selfie').onchange = async e => {
     msg.className = 'msg show error';
     msg.textContent = 'Could not analyse that photo. Try another, or pick a premade avatar below.';
     console.error(err);
-  } finally {
-    $('selfie').value = '';
   }
+}
+
+$('selfie').onchange = async e => {
+  const f = e.target.files?.[0];
+  if (!f) return;
+  const img = new Image();
+  img.src = URL.createObjectURL(f);
+  await new Promise(r => { img.onload = r; img.onerror = r; });
+  await handleSelfieImage(img);
+  $('selfie').value = '';
+};
+
+// ── live camera capture ─────────────────────────────────────────────────────
+// An alternative to the file picker: getUserMedia() streams the front camera
+// into <video>, "Capture" grabs one frame onto a canvas, and that frame is
+// handed to the exact same handleSelfieImage() the file-upload path uses.
+// Needs a secure context (HTTPS, or the browser's localhost/127.0.0.1
+// exception) — serving the phone URL over plain http on the LAN will not
+// expose navigator.mediaDevices at all, which the try/catch below reports.
+let cameraStream = null;
+async function openCamera() {
+  const camMsg = $('cameraMsg');
+  camMsg.className = ''; camMsg.textContent = '';
+  $('cameraModal').hidden = false;
+  try {
+    if (!navigator.mediaDevices?.getUserMedia)
+      throw new Error('Camera not available here (needs HTTPS or localhost). Use Upload Photo instead.');
+    cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+    $('cameraVideo').srcObject = cameraStream;
+  } catch (err) {
+    camMsg.className = 'show';
+    camMsg.textContent = err.message?.includes('HTTPS') ? err.message
+      : 'Could not access the camera — check the browser permission prompt, or use Upload Photo instead.';
+    console.error(err);
+  }
+}
+function closeCamera() {
+  $('cameraModal').hidden = true;
+  if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
+  $('cameraVideo').srcObject = null;
+}
+$('takePhotoBtn').onclick = openCamera;
+$('cameraCancel').onclick = closeCamera;
+$('cameraBackdrop').onclick = closeCamera;
+$('cameraCapture').onclick = async () => {
+  const video = $('cameraVideo');
+  if (!video.videoWidth) return;             // stream not ready yet
+  const cv = $('cameraCanvas');
+  cv.width = video.videoWidth; cv.height = video.videoHeight;
+  // Draws the RAW stream frame — the video element's mirror (scaleX(-1)) is a
+  // CSS preview transform only, it does not affect drawImage's source pixels.
+  cv.getContext('2d').drawImage(video, 0, 0, cv.width, cv.height);
+  const dataUrl = cv.toDataURL('image/jpeg', 0.92);
+  closeCamera();
+
+  const img = new Image();
+  img.src = dataUrl;
+  await new Promise(r => { img.onload = r; img.onerror = r; });
+  await handleSelfieImage(img);
 };
 
 async function generateFromSelfie(bodyType) {
