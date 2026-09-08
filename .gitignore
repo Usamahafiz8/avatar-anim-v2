@@ -6,7 +6,7 @@
 #
 # Run `node fetch-assets.mjs` to pull them from Ready Player Me's own repos.
 models/
-
+.env
 # scratch renders
 *.png
 !contact-sheet.png

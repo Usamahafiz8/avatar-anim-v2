@@ -13,10 +13,10 @@ const ROOT = dirname(__filename);
 const PORT = Number(process.env.PORT ?? 8088);
 
 // No dotenv dependency for one optional local-only variable — a `.env` file
-// with GEMINI_API_KEY=... in the repo root is enough for `node serve.mjs` to
+// with OPENAI_API_KEY=... in the repo root is enough for `node serve.mjs` to
 // pick it up, same as Vercel/Netlify's own dashboard-set env var in
 // production. Silently does nothing if the file doesn't exist (most days of
-// local dev don't need the Gemini tier at all — see analyseSelfie's notes).
+// local dev don't need the AI tier at all — see analyseSelfie's notes).
 try {
   const envText = await readFile(join(ROOT, '.env'), 'utf8');
   for (const line of envText.split('\n')) {
@@ -30,10 +30,10 @@ try {
 } catch {}
 
 // Mirrors api/analyze-face.js (Vercel) / netlify/functions/analyze-face.js —
-// same shared handleAnalyzeFaceRequest (validation + Gemini call + status
+// same shared handleAnalyzeFaceRequest (validation + OpenAI-call + status
 // mapping), so `node serve.mjs` exercises the exact same behaviour locally
 // instead of only being testable after a deploy. Reads the key from the
-// process env (e.g. `GEMINI_API_KEY=... node serve.mjs`, or the .env loader
+// process env (e.g. `OPENAI_API_KEY=... node serve.mjs`, or the .env loader
 // above) — never sent to the client. Only the request/response plumbing
 // (reading the raw body, writing Node's http response) is specific to this
 // file; Vercel/Netlify have their own equivalent plumbing around the same call.
@@ -47,7 +47,7 @@ async function handleAnalyzeFace(req, res) {
   let parsedBody;
   try { parsedBody = JSON.parse(raw); } catch { res.writeHead(400).end('invalid json'); return; }
 
-  const { status, body } = await handleAnalyzeFaceRequest(parsedBody, process.env.GEMINI_API_KEY);
+  const { status, body } = await handleAnalyzeFaceRequest(parsedBody, process.env.OPENAI_API_KEY);
   res.writeHead(status, { 'content-type': 'application/json' }).end(JSON.stringify(body));
 }
 
