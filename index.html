@@ -742,21 +742,22 @@ const CLIP_FILES = [
   { label: 'Dance 1',    file: 'F_Dances_001',               icon: '\u{1F57A}' },
   { label: 'Dance 2',    file: 'F_Dances_004',               icon: '\u{1F483}' },
   { label: 'Dance 3',    file: 'F_Dances_006',               icon: '\u{1F3B6}' },
-  // Reverted: Celebrate/Hip Hop/Twerk/Wave/Walk (rpm-*.glb) came from the
-  // sibling character-customizer project as raw local files with no
-  // redistribution-compliant, re-fetchable source — RPM's own animation
-  // library (what fetch-assets.mjs actually pulls from) has no clip under
-  // those names, only generically-numbered Dances_00X/Standing_Expressions_
-  // 00X/Talking_Variations_00X. That made every deploy 404 on them at
-  // build time (fetch-assets.mjs can't fetch a file that doesn't exist
-  // upstream) and crash the whole page via the global error handler.
+  { label: 'Celebrate',  file: 'rpm-celebrate',              icon: '\u{1F389}' },
+  { label: 'Hip Hop',    file: 'rpm-hiphop',                 icon: '\u{1F917}' },
+  { label: 'Laughing',   file: 'rpm-laughing',               icon: '\u{1F602}' },
+  { label: 'Twerk',      file: 'rpm-twerk',                  icon: '\u{1F351}' },
+  { label: 'Walk',       file: 'rpm-walk',                   icon: '\u{1F6B6}' },
+  { label: 'Wave',       file: 'rpm-wave',                   icon: '\u{1F44B}' },
+  { label: 'Angry',      file: 'M_Standing_Expressions_012', icon: '\u{1F621}' },
+  { label: 'Laugh',      file: 'M_Standing_Expressions_007', icon: '\u{1F606}' },
+  { label: 'Talking',    file: 'F_Talking_Variations_001',   icon: '\u{1F5E3}' },
 ];
 
 // The player's equipped taunts. Limits PLAYER-SENT reactions only — game events
 // still fire their own animation regardless of what is equipped.
 const LOADOUT_MAX = 4;
 const LOADOUT_KEY = 'sbj.loadout.v2';
-let LOADOUT = ['Dance 1', 'Dance 2', 'Dance 3', 'Celebrate'];
+let LOADOUT = ['Dance 1', 'Hip Hop', 'Celebrate', 'Laughing'];
 try {
   const saved = JSON.parse(localStorage.getItem(LOADOUT_KEY) || 'null');
   // a loadout saved before a move was removed must not equip it any more
@@ -785,6 +786,7 @@ const EFFECTS = {
   'Angry':     { kind: 'steam', anchor: 'ears',  every: 95,  dur: 1400 },
   'Celebrate': { kind: 'star',  anchor: 'crown', every: 110, dur: 1300 },
   'Laugh':     { kind: 'drop',  anchor: 'brow',  every: 300, dur: 1100 },
+  'Laughing':  { kind: 'drop',  anchor: 'brow',  every: 300, dur: 1100 },
   'Lose':      { kind: 'drop',  anchor: 'brow',  every: 420, dur: 1400 },
 };
 
@@ -797,8 +799,14 @@ const FACES = {
   'Dance 2':       { smile: .65, open: .15, squint: 0   },
   'Dance 3':       { smile: .60, open: .12, squint: 0   },
   'Celebrate':     { smile: .90, open: .40, squint: .10 },
+  'Hip Hop':       { smile: .70, open: .20, squint: 0   },
+  'Laughing':      { smile: 1,   open: .55, squint: .35 },
+  'Twerk':         { smile: .75, open: .25, squint: 0   },
+  'Walk':          { smile: .40, open: .10, squint: 0   },
+  'Wave':          { smile: .60, open: .15, squint: 0   },
   'Angry':         { smile: 0,   open: .15, squint: .45 },
   'Laugh':         { smile: 1,   open: .55, squint: .35 },
+  'Talking':       { smile: .30, open: .20, squint: 0   },
   'Lose':          { smile: 0,   open: .08, squint: .50 },
 };
 
