@@ -554,7 +554,7 @@
     <div id="customizeBody">
 
       <p class="cz-intro">Take or upload a selfie and we'll match your avatar's skin tone, glasses and
-        facial hair automatically. Use Fine-tune details below for hair and face shape.</p>
+        facial hair automatically. Use Fine-tune details below for face shape.</p>
 
       <div class="cz-card" id="uploadCard">
         <h2 class="cz-h2"><span class="cz-step">1</span>Your photo</h2>
@@ -599,14 +599,6 @@
               <div class="cz-section">
                 <div class="cz-label-row"><span class="cz-label">Skin Tone</span></div>
                 <div class="cz-swatchRow" id="custSkin"></div>
-              </div>
-              <div class="cz-section">
-                <div class="cz-label-row"><span class="cz-label">Hair Style</span></div>
-                <div class="cz-swatchRow shapes" id="custHairStyle"></div>
-              </div>
-              <div class="cz-section" id="custHairColorSection">
-                <div class="cz-label-row"><span class="cz-label">Hair Color</span></div>
-                <div class="cz-swatchRow" id="custHairColor"></div>
               </div>
             </div>
           </div>
@@ -1409,7 +1401,6 @@ async function runBench() {
 // Customize panel all read/write this and rebuild from it.
 const charState = {
   bodyType: 'male', tint: null, glassesStyle: 'none', beardStyle: 'none', beardColor: null,
-  hairStyle: 'default', hairColor: null,
   jawWidth: 1, faceLength: 1,
 };
 // Beard is restricted to the male body (custBeardSection hides outside
@@ -1612,24 +1603,6 @@ function buildGlasses(style = 'round') {
   return g;
 }
 
-// A hard-edged sphere slice reads as a solid plastic dome, not hair — fades
-// opacity to 0 at the rim via an alphaMap (reads the texture's GREEN channel,
-// NOT canvas alpha — must be an actual grayscale value, white=opaque).
-const _featherMapCache = new Map();
-function featherAlphaMap(midStop = 0.5, key = midStop) {
-  if (_featherMapCache.has(key)) return _featherMapCache.get(key);
-  const cv = document.createElement('canvas'); cv.width = 8; cv.height = 128;
-  const ctx = cv.getContext('2d');
-  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 8, 128);
-  const grad = ctx.createLinearGradient(0, 0, 0, 128);
-  grad.addColorStop(0, '#fff'); grad.addColorStop(midStop, '#fff');
-  grad.addColorStop(Math.min(0.99, midStop + 0.28), '#888'); grad.addColorStop(1, '#000');
-  ctx.fillStyle = grad; ctx.fillRect(0, 0, 8, 128);
-  const tex = new THREE.CanvasTexture(cv);
-  _featherMapCache.set(key, tex);
-  return tex;
-}
-
 // Beard shapes: small stacks of overlapping ellipsoids (scaled sphere-
 // slices) following the jaw's curve, sized/positioned against measured
 // bind-pose head-bone-local geometry on this exact mesh.
@@ -1748,51 +1721,6 @@ function buildBeard(style = 'full', hex) {
   return group;
 }
 
-// Real hair STYLE (shape) via a swappable cap geometry parented near
-// HeadTop_End — the baked-in hair can't be recoloured or hidden by painting
-// (scattered across the texture atlas in disconnected pieces), but it CAN be
-// fully covered by an opaque accessory.
-const HAIR_STYLES = {
-  // Same tight-scalp footprint as buzz, but rendered in the SKIN tone
-  // instead of a hair colour (see applyPersonalization) — this body has no
-  // way to hide or recolour its baked-in hair directly, so "bald" is
-  // simulated by covering it with a skin-coloured cap rather than an
-  // actual hairless head.
-  // r/theta bumped up from an earlier pass that undershot the real skull:
-  // the cap's own pole (apex) needs to clear HeadTop_End with a small
-  // margin (measured ~0.226 above the Head bone on this rig), and bald/buzz
-  // specifically need to be AT LEAST as big as the fuller styles — their
-  // whole job is fully covering the real baked-in hair, so a "tight" small
-  // dome just leaves the real hair peeking out round the edges instead of
-  // reading as bald/buzzed (confirmed by screenshot: the old bald/buzz were
-  // indistinguishable from Default because they were too small to cover
-  // anything).
-  bald: { r: 0.126, seg: [16, 12], theta: 0.70, y: 0.109, z: -0.004 },
-  buzz: { r: 0.127, seg: [16, 12], theta: 0.72, y: 0.108, z: -0.004 },
-  crop: { r: 0.124, seg: [16, 12], theta: 0.76, y: 0.104, z: -0.006 },
-  swept:{ r: 0.126, seg: [16, 12], theta: 0.80, y: 0.100, z: -0.016 },
-  // Bigger/lower coverage reads as more hair reaching toward the shoulders —
-  // still just a dome (no actual hanging strands), the honest limit of a
-  // one-piece accessory on a body with no dedicated hair geometry.
-  long: { r: 0.132, seg: [18, 14], theta: 0.96, y: 0.086, z: -0.022 },
-  // Larger radius, rounder silhouette for a fuller, voluminous look.
-  afro: { r: 0.158, seg: [20, 16], theta: 0.68, y: 0.112, z: -0.006 },
-};
-const HAIR_COLOR_DEFAULT = 0x2a1a12;
-const DEFAULT_SKIN_HEX = '#c68a5c'; // matches the "Medium" skin preset — a neutral fallback for Bald before any tint is picked
-function buildHairCap(style = 'crop', hex) {
-  const cfg = HAIR_STYLES[style] ?? HAIR_STYLES.crop;
-  const mat = new THREE.MeshStandardMaterial({
-    color: hex ?? HAIR_COLOR_DEFAULT, roughness: 0.8,
-    transparent: true, alphaMap: featherAlphaMap(0.55, 'hair-' + style),
-  });
-  const geo = new THREE.SphereGeometry(cfg.r, cfg.seg[0], cfg.seg[1], 0, Math.PI * 2, 0, Math.PI * cfg.theta);
-  const cap = new THREE.Mesh(geo, mat);
-  cap.position.set(0, cfg.y, cfg.z);
-  cap.name = 'hairAccessory';
-  return cap;
-}
-
 // ---- glue: apply charState onto one already-built avatar root -----------
 function applyPersonalization(root, headBone) {
   if (charState.tint) applyTint(root, charState.tint);
@@ -1806,22 +1734,6 @@ function applyPersonalization(root, headBone) {
   }
   if (charState.beardStyle && charState.beardStyle !== 'none') {
     headBone.add(buildBeard(charState.beardStyle, charState.beardColor));
-  }
-  // 'default' with no colour means "leave the baked hair alone"; a picked
-  // colour with no style still needs actual geometry to show up on, so it
-  // defaults to the fullest preset rather than silently doing nothing.
-  const effectiveHairStyle = charState.hairStyle && charState.hairStyle !== 'default'
-    ? charState.hairStyle : (charState.hairColor ? 'swept' : null);
-  if (effectiveHairStyle === 'bald') {
-    // Bald ignores hairColor entirely — it's covering the head in the
-    // person's own skin tone, not a hair colour, so it reads as bare scalp.
-    // Falls back to a neutral skin tone (not the brown HAIR_COLOR_DEFAULT)
-    // when no tint is picked yet — otherwise "Bald" rendered as a solid
-    // brown dome, indistinguishable from a hair colour swatch.
-    const skinHex = new THREE.Color(charState.tint ?? DEFAULT_SKIN_HEX).getHex();
-    headBone.add(buildHairCap('bald', skinHex));
-  } else if (effectiveHairStyle) {
-    headBone.add(buildHairCap(effectiveHairStyle, charState.hairColor ? new THREE.Color(charState.hairColor).getHex() : undefined));
   }
 }
 
@@ -1997,7 +1909,7 @@ async function analyseSelfie(img) {
   return {
     skin, hasFacialHair,
     bodyType: body?.bodyType ?? 'male', bodyConfidence: body?.confidence,
-    glassesStyle: hasGlasses ? 'round' : 'none', hairStyle: 'default', hairColor: null,
+    glassesStyle: hasGlasses ? 'round' : 'none',
     beardStyle: hasFacialHair ? 'thin' : 'none', beardColor: null,
     jawWidth: 1, faceLength: 1,
   };
@@ -2017,12 +1929,6 @@ const BEARD_PRESETS = [
   { key: 'none', label: 'None' }, { key: 'thin', label: 'Thin' },
   { key: 'stubble', label: 'Stubble' }, { key: 'goatee', label: 'Goatee' },
   { key: 'medium', label: 'Medium' }, { key: 'full', label: 'Full' },
-];
-const HAIR_STYLE_PRESETS = [
-  { key: 'default', label: 'Default' }, { key: 'bald', label: 'Bald' },
-  { key: 'buzz', label: 'Buzz' }, { key: 'crop', label: 'Crop' },
-  { key: 'swept', label: 'Swept back' }, { key: 'long', label: 'Long' },
-  { key: 'afro', label: 'Afro' },
 ];
 const HAIR_COLOR_PRESETS = [
   { hex: '#1a1410', label: 'Black' }, { hex: '#3b2a1a', label: 'Brown' },
@@ -2080,10 +1986,6 @@ function renderLoadoutUI() {
 function buildCustomizeUI() {
   renderSwatchRow('custSkin', SKIN_PRESETS, i => charState.tint && nearestPreset(charState.tint, SKIN_PRESETS) === i.hex,
     async i => { charState.tint = i.hex; await rebuildCharacter(); });
-  renderSwatchRow('custHairStyle', HAIR_STYLE_PRESETS, i => charState.hairStyle === i.key,
-    async i => { charState.hairStyle = i.key; await rebuildCharacter(); }, 'shape');
-  renderSwatchRow('custHairColor', HAIR_COLOR_PRESETS, i => charState.hairColor === i.hex,
-    async i => { charState.hairColor = i.hex; await rebuildCharacter(); });
   renderSwatchRow('custBeard', BEARD_PRESETS, i => charState.beardStyle === i.key,
     async i => { charState.beardStyle = i.key; await rebuildCharacter(); }, 'shape');
   renderSwatchRow('custBeardColor', HAIR_COLOR_PRESETS, i => charState.beardColor === i.hex,
@@ -2101,10 +2003,6 @@ function buildCustomizeUI() {
 function syncCustomizeUI() {
   for (const b of $('custBodySeg').children) b.setAttribute('aria-pressed', String(b.dataset.b === charState.bodyType));
   $('custBeardSection').hidden = charState.bodyType !== 'male';
-  // Bald covers the head in skin tone, not a hair colour (see
-  // applyPersonalization) — a colour swatch that visibly does nothing is
-  // worse than no swatch, same reasoning as hiding Beard for a non-male body.
-  $('custHairColorSection').hidden = charState.hairStyle === 'bald';
   buildCustomizeUI._rerenderActive?.();
 }
 // Re-render just the pressed state without rebuilding every button from
@@ -2128,8 +2026,6 @@ buildCustomizeUI._rerenderActive = () => {
   mark('custBeard', BEARD_PRESETS, 'beardStyle');
   mark('custBeardColor', HAIR_COLOR_PRESETS, 'beardColor');
   mark('custGlasses', GLASSES_PRESETS, 'glassesStyle');
-  mark('custHairStyle', HAIR_STYLE_PRESETS, 'hairStyle');
-  mark('custHairColor', HAIR_COLOR_PRESETS, 'hairColor');
   const jawSlider = $('jawWidthSlider'), faceLenSlider = $('faceLengthSlider');
   if (jawSlider) {
     jawSlider.value = String(charState.jawWidth);
@@ -2169,7 +2065,6 @@ function buildPremadePicks() {
       el.dataset.active = 'true';
       setBodyType(p.key); charState.tint = p.tint;
       charState.glassesStyle = 'none'; charState.beardStyle = 'none'; charState.beardColor = null;
-      charState.hairStyle = 'default'; charState.hairColor = null;
       charState.jawWidth = 1; charState.faceLength = 1;
       await rebuildCharacter();
       syncCustomizeUI();
@@ -2203,7 +2098,6 @@ async function handleSelfieImage(img) {
     }
     pendingImg = {
       skin: out.skin, glassesStyle: out.glassesStyle, hasFacialHair: out.hasFacialHair, bodyType: out.bodyType,
-      hairStyle: out.hairStyle, hairColor: out.hairColor,
       beardStyle: out.beardStyle, beardColor: out.beardColor,
       jawWidth: out.jawWidth, faceLength: out.faceLength,
     };
@@ -2282,8 +2176,6 @@ async function generateFromSelfie(bodyType) {
     const wantsBeard = charState.bodyType === 'male' && pendingImg.hasFacialHair;
     charState.beardStyle = wantsBeard ? pendingImg.beardStyle : 'none';
     charState.beardColor = wantsBeard ? pendingImg.beardColor : null;
-    charState.hairStyle = pendingImg.hairStyle;
-    charState.hairColor = pendingImg.hairColor;
     charState.jawWidth = pendingImg.jawWidth ?? 1;
     charState.faceLength = pendingImg.faceLength ?? 1;
     await rebuildCharacter();
