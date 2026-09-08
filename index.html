@@ -742,19 +742,14 @@ const CLIP_FILES = [
   { label: 'Dance 1',    file: 'F_Dances_001',               icon: '\u{1F57A}' },
   { label: 'Dance 2',    file: 'F_Dances_004',               icon: '\u{1F483}' },
   { label: 'Dance 3',    file: 'F_Dances_006',               icon: '\u{1F3B6}' },
-  // Sourced from the sibling character-customizer project's models/anim/
-  // rpm-*.glb (same RPM rig). Fills the 'Celebrate' reaction that
-  // GAME_EVENTS/FACES/EFFECTS already referenced but had no clip for (see
-  // fetch-assets.mjs: the RPM library's own Celebrate/Laugh clips were
-  // dropped for not reading as their label). Verified each of these on the
-  // real rig (screenshot sequences, not just "it loaded") before wiring in:
-  // 'rpm-laughing' and 'rpm-clapping' failed the same way (near-zero body
-  // motion / no actual clap) and were left out rather than shipped anyway.
-  { label: 'Celebrate',  file: 'rpm-celebrate',              icon: '\u{1F389}' },
-  { label: 'Hip Hop',    file: 'rpm-hiphop',                 icon: '\u{1F57A}' },
-  { label: 'Twerk',      file: 'rpm-twerk',                  icon: '\u{1F483}' },
-  { label: 'Wave',       file: 'rpm-wave',                   icon: '\u{1F44B}' },
-  { label: 'Walk',       file: 'rpm-walk',                   icon: '\u{1F6B6}' },
+  // Reverted: Celebrate/Hip Hop/Twerk/Wave/Walk (rpm-*.glb) came from the
+  // sibling character-customizer project as raw local files with no
+  // redistribution-compliant, re-fetchable source — RPM's own animation
+  // library (what fetch-assets.mjs actually pulls from) has no clip under
+  // those names, only generically-numbered Dances_00X/Standing_Expressions_
+  // 00X/Talking_Variations_00X. That made every deploy 404 on them at
+  // build time (fetch-assets.mjs can't fetch a file that doesn't exist
+  // upstream) and crash the whole page via the global error handler.
 ];
 
 // The player's equipped taunts. Limits PLAYER-SENT reactions only — game events
@@ -777,7 +772,6 @@ const saveLoadout = () => { try { localStorage.setItem(LOADOUT_KEY, JSON.stringi
 // action:committed, so this is the shape, not a guess.
 const GAME_EVENTS = [
   { event: 'Win a hand',       reaction: 'Celebrate'     },
-  { event: 'Play a BlackJack', reaction: 'Dance 2'       },
   { event: 'Win the game',     reaction: 'Dance 1'       },
   { event: 'Lose a hand',      reaction: 'Lose'          },
   { event: 'Opponent misses',  reaction: 'Laugh'         },
@@ -806,10 +800,6 @@ const FACES = {
   'Angry':         { smile: 0,   open: .15, squint: .45 },
   'Laugh':         { smile: 1,   open: .55, squint: .35 },
   'Lose':          { smile: 0,   open: .08, squint: .50 },
-  'Hip Hop':       { smile: .55, open: .10, squint: 0   },
-  'Twerk':         { smile: .50, open: .08, squint: 0   },
-  'Wave':          { smile: .60, open: 0,   squint: 0   },
-  'Walk':          { smile: .15, open: 0,   squint: 0   },
 };
 
 const CLIP_MAP = {
@@ -2337,7 +2327,7 @@ $('auto-demo').onclick = () => {
   if (demoTimer) { clearTimeout(demoTimer); demoTimer = null; btn.textContent = '▶ Auto demo'; return; }
   btn.textContent = '■ Stop demo';
   const script = ['Win a hand','Taunt','Opponent misses','Lose a hand','Annoyed',
-                  'Play a BlackJack','Bring back','Refuse / no','Win the game'];
+                  'Bring back','Refuse / no','Win the game'];
   let i = 0;
   const step = () => {
     const ev = GAME_EVENTS.find(e => e.event === script[i % script.length]);
