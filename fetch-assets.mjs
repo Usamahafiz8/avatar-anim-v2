@@ -30,15 +30,15 @@ const AVATARS = [
 ];
 
 // animation clips -----------------------------------------------------------
-// Only what is actually used. RPM's "Standing Expressions" set (Angry, Lose)
-// was dropped: 012's "Angry" was actually a thumbs-up, 015's replacement
-// held its pose for well under a second before settling back to neutral for
-// the rest of the reaction's hold time, and Lose's bow/facepalm had the same
-// problem — neither read as its label. Celebrate (F_Dances_005) and Laugh
-// (F_Talking_Variations_001) were cut alongside them.
+// Includes dances, expressions, and talking variations from RPM's official library.
+// Additional custom animations (rpm-celebrate, rpm-hiphop, etc.) from character-customizer
+// would need to be hosted separately due to RPM's no-redistribution license clause.
+// For now, fetch only the official RPM animations that are available in their CDN.
 const CLIPS = [
   ['idle',  ['F_Standing_Idle_001']],
-  ['dance', ['F_Dances_001', 'F_Dances_004', 'F_Dances_006']],
+  ['dance', ['F_Dances_001', 'F_Dances_004', 'F_Dances_005', 'F_Dances_006']],
+  ['standing_expressions', ['M_Standing_Expressions_007', 'M_Standing_Expressions_012']],
+  ['talking_variations', ['F_Talking_Variations_001']],
 ];
 
 const exists = async p => { try { await stat(p); return true; } catch { return false; } };
