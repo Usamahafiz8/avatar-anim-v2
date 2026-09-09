@@ -807,6 +807,17 @@ const CLIP_FILES = [
   { label: 'Dance 3',    file: 'M_Dances_007',                icon: '\u{1F938}' },
   { label: 'Dance 4',    file: 'M_Dances_009',                icon: '\u{1F3C3}' },
   { label: 'Dance 5',    file: 'M_Dances_004',                icon: '✊' },
+  // Third verification pass, prompted by a direct ask for non-dance emotions
+  // (Angry/Laughing/Stressed). This time full 7-frame motion-arc filmstrips
+  // were reviewed per clip, not single frames. Of 6 re-examined candidates
+  // (002, 006, 007, 010, 013, 016), only two read as a distinct, sustained
+  // pose rather than generic idle gesturing or a near-duplicate of a dance
+  // already above (010/016 are both just arms-up flex, redundant with
+  // Celebrate/Dance 2-5; 002 barely moves; 013 reads as another dance pose).
+  // No clip in this library reads as "Laughing" — none of the ~30 tried
+  // across all three passes shake or bounce in a laugh-like way.
+  { label: 'Angry',      file: 'M_Standing_Expressions_006',  icon: '\u{1F620}' },
+  { label: 'Stressed',   file: 'M_Standing_Expressions_007',  icon: '\u{1F62B}' },
 ];
 
 // The player's equipped taunts. Limits PLAYER-SENT reactions only — game events
@@ -827,14 +838,15 @@ const saveLoadout = () => { try { localStorage.setItem(LOADOUT_KEY, JSON.stringi
 // someone back, win the game, send a reaction". These are what the real
 // integration will bind to — the realtime layer already emits round:result and
 // action:committed, so this is the shape, not a guess.
-// Reactions referenced here must exist in CLIP_FILES — 'Lose'/'Laugh'/
-// 'Angry' used to (see CLIP_FILES comments on why they were cut: unconvincing
-// on this rig), leaving these buttons silently dead (triggerAll no-ops on an
-// unknown label). No replacement clip reads as losing/laughing/annoyed, so
-// those three events are dropped rather than pointed at the wrong animation.
+// Reactions referenced here must exist in CLIP_FILES — 'Lose'/'Laugh' still
+// have no matching clip (see CLIP_FILES comments — nothing in the library
+// reads as losing or laughing), leaving no event bound to them. 'Angry' is
+// back as of the third verification pass (see CLIP_FILES) and used below for
+// busting/going bust.
 const GAME_EVENTS = [
   { event: 'Win a hand',       reaction: 'Celebrate', icon: '\u{1F389}' },
   { event: 'Win the game',     reaction: 'Dance 1',   icon: '\u{1F3C6}' },
+  { event: 'Bust',             reaction: 'Angry',     icon: '\u{1F620}' },
 ];
 
 // Which cartoon effect rides along with which reaction.
@@ -859,6 +871,8 @@ const FACES = {
   'Dance 3':       { smile: .55, open: .10, squint: 0   },
   'Dance 4':       { smile: .65, open: .20, squint: 0   },
   'Dance 5':       { smile: .60, open: .12, squint: 0   },
+  'Angry':         { smile: 0,   open: .10, squint: .70 },
+  'Stressed':      { smile: 0,   open: .05, squint: .40 },
 };
 
 const CLIP_MAP = {

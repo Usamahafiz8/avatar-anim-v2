@@ -42,13 +42,17 @@ const AVATARS = [
 // one specifically. A second pass added 4 more Dance 2-5 clips (also
 // screenshot-verified) after a further sweep of Standing_Expressions and
 // jump/locomotion clips came up empty again; see CLIP_FILES in index.html
-// for the reasoning per clip.
+// for the reasoning per clip. A third pass reviewed full motion-arc filmstrips
+// (not just single frames) of the remaining untried Standing_Expressions
+// clips and found two that finally read as distinct: 006 (arms flare out,
+// fists clench — Angry) and 007 (leans forward, hand to face — Stressed).
 const CLIPS = [
   ['idle',       ['F_Standing_Idle_001']],
   ['dance',      ['F_Dances_001', 'F_Dances_005', 'F_Dances_007', 'M_Dances_008',
                   'M_Dances_004', 'M_Dances_006', 'M_Dances_007', 'M_Dances_009']],
   ['locomotion', ['F_Walk_002']],
-  ['expression', ['M_Standing_Expressions_008']],
+  ['expression', ['M_Standing_Expressions_008', 'M_Standing_Expressions_006',
+                  'M_Standing_Expressions_007']],
 ];
 
 const exists = async p => { try { await stat(p); return true; } catch { return false; } };
