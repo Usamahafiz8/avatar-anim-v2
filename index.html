@@ -1898,36 +1898,26 @@ async function buildHairCap(style, hex) {
 }
 
 // ---- headwear: caps/hoods — a separate accessory category from hair ------
-// "hood" (Ranger Hood) is sourced from Quaternius's "Modular Character
-// Outfits - Fantasy" pack (CC0, quaternius.itch.io/modular-character-
-// outfits-fantasy) — the Ranger outfit's hood ships as its own standalone
-// skinned mesh (not baked into a combined head like the hair packs), so it
-// needed real bind-pose extraction (skin-blend the joint matrices, then
-// re-express relative to this pack's own Head bone) rather than a straight
-// primitive pull. It needed zero manual fit correction afterward — sits
-// correctly on this rig's Head bone straight out of the extraction.
-// "rogue_hood" is a second, unrelated CC0 source: KayKit's "Character Pack:
-// Adventurers" (kaylousberg.itch.io/kaykit-adventurers, mirrored on GitHub
-// at KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0) — the
-// Rogue_Hooded character's head mesh. This pack's own units needed a real
-// fit pass (scale ~0.28, +Y offset, and a Z-axis flip — the mesh initially
-// read as backwards, its "open" front covering the face no matter how it
-// was repositioned, until mirroring Z fixed it) tuned by screenshot
-// iteration, unlike the Ranger hood's first-try fit — a different source
-// pack has no reason to share the other's fit numbers.
-// Both are baked into the same compact .bin format as the Quaternius hair
-// (positions already in head-relative space, at each style's own found
-// scale/offset), so there's no per-frame skinning cost and no dependency
-// on the source glTF/skeleton at runtime.
+// Sourced from Quaternius's "Modular Character Outfits - Fantasy" pack (CC0,
+// quaternius.itch.io/modular-character-outfits-fantasy) — the Ranger
+// outfit's hood ships as its own standalone skinned mesh (not baked into a
+// combined head like the hair packs), so it needed real bind-pose
+// extraction (skin-blend the joint matrices, then re-express relative to
+// this pack's own Head bone) rather than a straight primitive pull, but NO
+// manual fit correction afterward — verified by screenshot, it sits
+// correctly on this rig's Head bone with zero extra offset/scale.
+// A second style (a hood from KayKit's "Character Pack: Adventurers") was
+// tried and dropped: even after tuning its fit numbers by screenshot, it
+// read as an indistinct, oddly-shaped blob at this game's actual on-table
+// avatar size — its silhouette just doesn't hold up that small, where the
+// Ranger hood's smoother, rounder shape still reads fine. Not reflected in
+// this file at all; removed rather than left as a bad option, so it's not
+// a smoking gun to go find later.
 const HEADWEAR_FILES = {
   hood: { male: './models/headwear/hood_male.bin', female: './models/headwear/hood_female.bin' },
-  // One unisex mesh — the source pack ships the Rogue as a single
-  // character, not separate male/female builds like Quaternius's.
-  rogue_hood: { male: './models/headwear/rogue_hood.bin', female: './models/headwear/rogue_hood.bin' },
 };
 const HEADWEAR_TEXTURES = {
   hood: './models/headwear/hood_texture.png',
-  rogue_hood: './models/headwear/rogue_hood_texture.png',
 };
 const _headwearGeoCache = new Map();
 async function loadHeadwearGeometry(style, gender) {
@@ -2387,8 +2377,7 @@ const HAIR_STYLE_PRESETS = [
   { key: 'double_buns', label: 'Double Buns' }, { key: 'cornrows', label: 'Cornrows' },
 ];
 const HEADWEAR_PRESETS = [
-  { key: 'none', label: 'None' }, { key: 'hood', label: 'Ranger Hood' },
-  { key: 'rogue_hood', label: 'Rogue Hood' },
+  { key: 'none', label: 'None' }, { key: 'hood', label: 'Hood' },
 ];
 function renderSwatchRow(containerId, items, isActive, onPick, shape) {
   const wrap = $(containerId);
