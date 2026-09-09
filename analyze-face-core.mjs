@@ -18,13 +18,9 @@ import Anthropic from '@anthropic-ai/sdk';
 
 const MODEL = 'claude-opus-5';
 
-// Keep these enums in sync with BEARD_PRESETS / GLASSES_PRESETS in
-// index.html — they're duplicated here (browser vs. Node, no shared import
-// between them) rather than kept in one file. hairStyle/hairColor are asked
-// for even though index.html has no hair customization UI at the moment
-// (it's been added and removed a couple of times this session) — harmless
-// and cheap to keep asking for, and saves re-adding this schema again the
-// next time hair customization comes back.
+// Keep these enums in sync with BEARD_PRESETS / GLASSES_PRESETS /
+// HAIR_STYLE_PRESETS in index.html — they're duplicated here (browser vs.
+// Node, no shared import between them) rather than kept in one file.
 const AVATAR_TRAITS_TOOL = {
   name: 'report_avatar_traits',
   description: 'Report the visual traits read from a front-facing photo, for building a matching 3D avatar.',
@@ -47,13 +43,21 @@ const AVATAR_TRAITS_TOOL = {
           'ring = circle), otherwise pick the closest coverage-amount entry.' },
       beardColor: { type: 'string',
         description: 'Hex color of the facial hair. Any value is fine if hasFacialHair is false — ignored.' },
-      hairStyle: { type: 'string', enum: ['default', 'bald', 'buzz', 'crop', 'swept', 'long', 'afro'],
-        description: '"bald" for a shaved/hairless head, "default" only if hair is not visible at all ' +
-          '(hidden by a hat, out of frame, etc). Otherwise the closest length/volume: buzz (very short), ' +
-          'crop (short, neat), swept (medium, styled back/side), long (past the ears/collar), ' +
-          'afro (large rounded volume).' },
+      hairStyle: { type: 'string',
+        enum: ['default', 'casual', 'casual2', 'adventurer', 'beach', 'suit', 'king', 'punk',
+          'aline_bob', 'malt_shop_bob', 'layered_wavy', 'long_wavy', 'long_curly', 'sleek_bun',
+          'double_buns', 'cornrows'],
+        description: 'The closest REAL option to what\'s visible — these are the app\'s actual hair ' +
+          'meshes, not free-form description, so pick the nearest one rather than inventing a style ' +
+          'that isn\'t listed. "default" only if hair isn\'t visible at all (hat, out of frame, etc). ' +
+          'casual/casual2/adventurer/beach/suit/king are short/medium everyday cuts; punk is a mohawk; ' +
+          'aline_bob and malt_shop_bob are chin-length bobs (malt_shop_bob has small pigtail flips at ' +
+          'the ends); layered_wavy is shoulder-length waves; long_wavy and long_curly are past-the-' +
+          'shoulder straight/curly hair; sleek_bun and double_buns are hair gathered up (one bun vs ' +
+          'two); cornrows is tight braids across the whole scalp. When nothing matches well, pick the ' +
+          'closest by LENGTH AND VOLUME, not by any other resemblance.' },
       hairColor: { type: 'string',
-        description: 'Hex color of the head hair. Any value is fine if hairStyle is "bald" or "default" — ignored.' },
+        description: 'Hex color of the head hair. Any value is fine if hairStyle is "default" — ignored.' },
       hasGlasses: { type: 'boolean' },
       glassesStyle: { type: 'string', enum: ['none', 'round', 'square', 'sunglasses'],
         description: '"none" if hasGlasses is false. "sunglasses" for dark/opaque lenses regardless of ' +

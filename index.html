@@ -1794,33 +1794,69 @@ const HAIR_STYLE_FILES = {
   suit: './models/hair/suit.bin',
   king: './models/hair/king.bin',
   punk: './models/hair/punk.bin',
+  // Real hair meshes from a SECOND pack — OpenGameArt's "OverScore Proxy"
+  // modular female character set (CC0, opengameart.org/content/overscore-
+  // proxy-modular-low-poly-female-character-creation-set). Quaternius's
+  // pack (above) has no genuinely feminine styles at all — its own hair is
+  // honestly "6 short/medium men's cuts" per the extraction notes — so this
+  // is a second, separate source, not a replacement.
+  // Shipped as plain .glb (Blender's own glTF exporter) rather than the
+  // custom .bin format above: a hand-rolled exporter matching that format
+  // silently dropped most of the geometry on export, so this uses the
+  // GLTFLoader already vendored for the avatar body instead of chasing
+  // that bug for a format-consistency win with no functional benefit.
+  aline_bob: './models/hair/aline_bob.glb',
+  cornrows: './models/hair/cornrows.glb',
+  double_buns: './models/hair/double_buns.glb',
+  layered_wavy: './models/hair/layered_wavy_hair.glb',
+  long_curly: './models/hair/long_curly_hair.glb',
+  long_wavy: './models/hair/long_wavy_hair.glb',
+  malt_shop_bob: './models/hair/malt_shop_bob.glb',
+  sleek_bun: './models/hair/sleek_bun.glb',
 };
 // Quaternius's hair is ~700+ small disconnected "hair card" pieces, each fit
 // snugly to QUATERNIUS's own head — a uniform scale-up doesn't close the gap
 // against this rig's slightly different contour (it grows the cards' distance
 // from the scalp right along with the cards). Pulling them radially inward
-// (X/Z only) does.
+// (X/Z only) does. Applies only to the Quaternius styles above — the
+// OverScore styles come from an unrelated pack with its own units/pivot and
+// get their own entry in HAIR_FIT_GLTF instead.
 const HAIR_FIT_OFFSET_Y = -0.02;
 const HAIR_FIT_RADIAL = 0.75;
 const HAIR_COLOR_DEFAULT = 0x2a1a12;
+// Every OverScore style needs the same correction (same pack, same export
+// pipeline: each mesh was re-centered in Blender to a shared head-anchor
+// point before export, then this scale/offset tuned once by screenshot —
+// see the extraction notes) — one shared entry, not per-style.
+const HAIR_FIT_GLTF = { scale: 0.42, offsetY: -0.04 };
 
+const _hairGeoLoader = new GLTFLoader();
 const _hairGeoCache = new Map();
 async function loadHairGeometry(style) {
   if (_hairGeoCache.has(style)) return _hairGeoCache.get(style);
-  const buf = await fetch(HAIR_STYLE_FILES[style]).then(r => r.arrayBuffer());
-  const dv = new DataView(buf);
-  const vertCount = dv.getUint32(0, true);
-  const idxCount = dv.getUint32(4, true);
-  let off = 8;
-  const positions = new Float32Array(buf, off, vertCount * 3); off += vertCount * 3 * 4;
-  const normals = new Float32Array(buf, off, vertCount * 3); off += vertCount * 3 * 4;
-  const uvs = new Float32Array(buf, off, vertCount * 2); off += vertCount * 2 * 4;
-  const indices = new Uint32Array(buf, off, idxCount);
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  geo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
-  geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
-  geo.setIndex(new THREE.BufferAttribute(indices, 1));
+  const path = HAIR_STYLE_FILES[style];
+  let geo;
+  if (path.endsWith('.glb')) {
+    const gltf = await new Promise((res, rej) => _hairGeoLoader.load(path, res, undefined, rej));
+    let mesh = null;
+    gltf.scene.traverse(o => { if (o.isMesh && !mesh) mesh = o; });
+    geo = mesh.geometry;
+  } else {
+    const buf = await fetch(path).then(r => r.arrayBuffer());
+    const dv = new DataView(buf);
+    const vertCount = dv.getUint32(0, true);
+    const idxCount = dv.getUint32(4, true);
+    let off = 8;
+    const positions = new Float32Array(buf, off, vertCount * 3); off += vertCount * 3 * 4;
+    const normals = new Float32Array(buf, off, vertCount * 3); off += vertCount * 3 * 4;
+    const uvs = new Float32Array(buf, off, vertCount * 2); off += vertCount * 2 * 4;
+    const indices = new Uint32Array(buf, off, idxCount);
+    geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+    geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+    geo.setIndex(new THREE.BufferAttribute(indices, 1));
+  }
   _hairGeoCache.set(style, geo);
   return geo;
 }
@@ -1842,8 +1878,13 @@ async function buildHairCap(style, hex) {
   const group = new THREE.Group();
   group.name = 'hairAccessory';
   const mesh = new THREE.Mesh(geo, buildHairAccessoryMaterial(hex));
-  group.position.y = HAIR_FIT_OFFSET_Y;
-  mesh.scale.set(HAIR_FIT_RADIAL, 1, HAIR_FIT_RADIAL);
+  if (HAIR_STYLE_FILES[style].endsWith('.glb')) {
+    group.position.y = HAIR_FIT_GLTF.offsetY;
+    mesh.scale.setScalar(HAIR_FIT_GLTF.scale);
+  } else {
+    group.position.y = HAIR_FIT_OFFSET_Y;
+    mesh.scale.set(HAIR_FIT_RADIAL, 1, HAIR_FIT_RADIAL);
+  }
   group.add(mesh);
   return group;
 }
@@ -2162,8 +2203,17 @@ async function analyseSelfie(img) {
 // must keep working exactly as before with zero backend.
 const AI_BEARD_STYLES = new Set(['none','thin','stubble','goatee','medium','full','mustache','vandyke','muttonchops','circle']);
 const AI_GLASSES_STYLES = new Set(['none','round','square','sunglasses']);
+// HAIR_STYLE_PRESETS is declared further down the file — computed lazily
+// (not a top-level Set like the two above) so this doesn't reference it
+// before its own declaration runs.
+const isAiHairStyle = key => HAIR_STYLE_PRESETS.some(p => p.key === key);
 const isHex = v => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v);
 async function analyseSelfieWithAI(img, local) {
+  // analyseSelfie() never sets these (no local heuristic for hair SHAPE —
+  // only the AI path can actually read it) — default them here so every
+  // return path below (including the plain-fallback ones) has a value
+  // instead of `undefined` reaching pendingImg/charState.
+  local = { hairStyle: 'default', hairColor: null, ...local };
   try {
     const cv = document.createElement('canvas');
     const maxDim = 768; // plenty for trait reading; keeps the upload small/cheap
@@ -2189,6 +2239,7 @@ async function analyseSelfieWithAI(img, local) {
     // with something it doesn't know.
     const beardStyle = AI_BEARD_STYLES.has(t.beardStyle) ? t.beardStyle : local.beardStyle;
     const glassesStyle = AI_GLASSES_STYLES.has(t.glassesStyle) ? t.glassesStyle : local.glassesStyle;
+    const hairStyle = isAiHairStyle(t.hairStyle) ? t.hairStyle : (local.hairStyle ?? 'default');
     const clamp = (v, lo, hi, fallback) => typeof v === 'number' && v >= lo && v <= hi ? v : fallback;
 
     return {
@@ -2199,6 +2250,8 @@ async function analyseSelfieWithAI(img, local) {
       beardStyle: t.hasFacialHair ? beardStyle : 'none',
       beardColor: t.hasFacialHair && isHex(t.beardColor) ? t.beardColor : (t.hasFacialHair ? local.beardColor : null),
       glassesStyle: t.hasGlasses ? glassesStyle : 'none',
+      hairStyle,
+      hairColor: hairStyle !== 'default' && isHex(t.hairColor) ? t.hairColor : (local.hairColor ?? null),
       jawWidth: clamp(t.jawWidth, 0.8, 1.25, local.jawWidth),
       faceLength: clamp(t.faceLength, 0.85, 1.2, local.faceLength),
       aiEnhanced: true,
@@ -2237,6 +2290,10 @@ const HAIR_STYLE_PRESETS = [
   { key: 'casual2', label: 'Casual 2' }, { key: 'adventurer', label: 'Adventurer' },
   { key: 'beach', label: 'Beach' }, { key: 'suit', label: 'Suit' },
   { key: 'king', label: 'King' }, { key: 'punk', label: 'Punk' },
+  { key: 'aline_bob', label: 'A-Line Bob' }, { key: 'malt_shop_bob', label: 'Malt Shop Bob' },
+  { key: 'layered_wavy', label: 'Layered Wavy' }, { key: 'long_wavy', label: 'Long Wavy' },
+  { key: 'long_curly', label: 'Long Curly' }, { key: 'sleek_bun', label: 'Sleek Bun' },
+  { key: 'double_buns', label: 'Double Buns' }, { key: 'cornrows', label: 'Cornrows' },
 ];
 function renderSwatchRow(containerId, items, isActive, onPick, shape) {
   const wrap = $(containerId);
@@ -2414,12 +2471,17 @@ async function handleSelfieImage(img) {
     pendingImg = {
       skin: out.skin, glassesStyle: out.glassesStyle, hasFacialHair: out.hasFacialHair, bodyType: out.bodyType,
       beardStyle: out.beardStyle, beardColor: out.beardColor,
+      hairStyle: out.hairStyle, hairColor: out.hairColor,
       jawWidth: out.jawWidth, faceLength: out.faceLength,
     };
     msg.className = 'cz-msg show ok';
     const traitBits = [`${out.bodyType} body`];
     if (out.glassesStyle !== 'none') traitBits.push('glasses');
     if (out.hasFacialHair) traitBits.push(`${out.beardStyle} beard`);
+    if (out.hairStyle && out.hairStyle !== 'default') {
+      const hairLabel = HAIR_STYLE_PRESETS.find(p => p.key === out.hairStyle)?.label ?? out.hairStyle;
+      traitBits.push(`${hairLabel} hair`);
+    }
     traitBits.push('face shape');
     const source = out.aiEnhanced ? ' (AI-enhanced)' : '';
     msg.textContent = `Looks good ✓ Click Generate Avatar. Detected${source}: ${traitBits.join(', ')}.`;
@@ -2492,6 +2554,8 @@ async function generateFromSelfie(bodyType) {
     const wantsBeard = charState.bodyType === 'male' && pendingImg.hasFacialHair;
     charState.beardStyle = wantsBeard ? pendingImg.beardStyle : 'none';
     charState.beardColor = wantsBeard ? pendingImg.beardColor : null;
+    charState.hairStyle = pendingImg.hairStyle ?? 'default';
+    charState.hairColor = pendingImg.hairColor ?? null;
     charState.jawWidth = pendingImg.jawWidth ?? 1;
     charState.faceLength = pendingImg.faceLength ?? 1;
     await rebuildCharacter();
