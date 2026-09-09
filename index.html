@@ -1591,7 +1591,12 @@ function playVoiceLine(label, hold) {
   if (!v || !hold) return false;
   const audio = new Audio(v.url);
   const ratio = v.duration > 0 ? v.duration / hold : 1;
-  audio.playbackRate = Math.min(3, Math.max(.4, ratio));
+  // Only nudge speed when the recording is already close to the clip's
+  // length — a big stretch (short line, long clip, or the reverse) is more
+  // noticeable as a slowed/sped-up voice than as "in sync", so beyond this
+  // range just play at normal speed and let it end early or get cut off by
+  // the hard stop below instead of distorting the voice.
+  audio.playbackRate = (ratio >= .85 && ratio <= 1.2) ? ratio : 1;
   audio.play().catch(() => {});
   setTimeout(() => audio.pause(), hold * 1000 + 30);
   return true;
