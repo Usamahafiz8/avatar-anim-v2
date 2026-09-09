@@ -116,7 +116,7 @@
   }
   .play-btn:hover { border-color: var(--lime); color: var(--lime); }
   .row.playing .play-btn { background: var(--lime); color: #10240a; border-color: var(--lime); }
-  .pick { display: flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+  .pick { display: none; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
   .pick button {
     padding: 7px 12px; background: transparent; color: var(--muted); border: none; font-size: 12.5px;
     font-weight: 600; letter-spacing: .02em;
@@ -210,7 +210,7 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.enablePan = false;
 controls.minDistance = 1.2;
-controls.maxDistance = 6;
+controls.maxDistance = 10;
 controls.minPolarAngle = Math.PI * 0.18;
 controls.maxPolarAngle = Math.PI * 0.52;
 
@@ -250,7 +250,7 @@ async function loadBody() {
   const height = box.max.y - box.min.y;
   const midY = box.min.y + height * 0.52;
   controls.target.set(0, midY, 0);
-  camera.position.set(0, midY + height * 0.06, height * 2.05);
+  camera.position.set(0, midY + height * 0.06, height * 3.4);
   camera.lookAt(controls.target);
 
   mixer = new THREE.AnimationMixer(root);
