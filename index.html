@@ -615,6 +615,10 @@
                 <div class="cz-label-row"><span class="cz-label">Hair Color</span></div>
                 <div class="cz-swatchRow" id="custHairColor"></div>
               </div>
+              <div class="cz-section">
+                <div class="cz-label-row"><span class="cz-label">Headwear</span></div>
+                <div class="cz-swatchRow shapes" id="custHeadwear"></div>
+              </div>
             </div>
           </div>
 
@@ -1413,6 +1417,7 @@ async function runBench() {
 const charState = {
   bodyType: 'male', tint: null, glassesStyle: 'none', beardStyle: 'none', beardColor: null,
   hairStyle: 'default', hairColor: null,
+  headwear: 'none',
   jawWidth: 1, faceLength: 1,
 };
 // Beard is restricted to the male body (custBeardSection hides outside
@@ -1892,6 +1897,72 @@ async function buildHairCap(style, hex) {
   return group;
 }
 
+// ---- headwear: caps/hoods — a separate accessory category from hair ------
+// Sourced from Quaternius's "Modular Character Outfits - Fantasy" pack (CC0,
+// quaternius.itch.io/modular-character-outfits-fantasy) — the Ranger
+// outfit's hood ships as its own standalone skinned mesh (not baked into a
+// combined head like the hair packs), so it needed real bind-pose
+// extraction (skin-blend the joint matrices, then re-express relative to
+// this pack's own Head bone) rather than a straight primitive pull, but NO
+// manual fit correction afterward — verified by screenshot, it sits
+// correctly on this rig's Head bone with zero extra offset/scale, unlike
+// every hair style above. Baked once into the same compact .bin format as
+// the Quaternius hair (positions already in head-relative space), so
+// there's no per-frame skinning cost and no dependency on the source
+// glTF/skeleton at runtime.
+// Male and female hoods are separate meshes (fit to each body's own Head
+// bone during extraction) but share one texture — the source pack ships a
+// single Ranger material for both.
+const HEADWEAR_FILES = {
+  hood: { male: './models/headwear/hood_male.bin', female: './models/headwear/hood_female.bin' },
+};
+const HEADWEAR_TEXTURE = './models/headwear/hood_texture.png';
+const _headwearGeoCache = new Map();
+async function loadHeadwearGeometry(style, gender) {
+  const key = style + '-' + gender;
+  if (_headwearGeoCache.has(key)) return _headwearGeoCache.get(key);
+  const path = HEADWEAR_FILES[style]?.[gender];
+  if (!path) return null;
+  const buf = await fetch(path).then(r => r.arrayBuffer());
+  const dv = new DataView(buf);
+  const vertCount = dv.getUint32(0, true);
+  const idxCount = dv.getUint32(4, true);
+  let off = 8;
+  const positions = new Float32Array(buf, off, vertCount * 3); off += vertCount * 3 * 4;
+  const normals = new Float32Array(buf, off, vertCount * 3); off += vertCount * 3 * 4;
+  const uvs = new Float32Array(buf, off, vertCount * 2); off += vertCount * 2 * 4;
+  const indices = new Uint32Array(buf, off, idxCount);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+  geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+  geo.setIndex(new THREE.BufferAttribute(indices, 1));
+  _headwearGeoCache.set(key, geo);
+  return geo;
+}
+let _headwearTexPromise = null;
+function loadHeadwearTexture() {
+  if (!_headwearTexPromise) {
+    _headwearTexPromise = new THREE.TextureLoader().loadAsync(HEADWEAR_TEXTURE).then(tex => {
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.flipY = false; // came from a glTF source (flipY=false convention)
+      return tex;
+    });
+  }
+  return _headwearTexPromise;
+}
+async function buildHeadwear(style, gender) {
+  const [geo, tex] = await Promise.all([loadHeadwearGeometry(style, gender), loadHeadwearTexture()]);
+  if (!geo) return null;
+  // Unlit + the texture's own baked shading (not a flat hex tint like the
+  // hair styles) — this piece has real diffuse detail, unlike the flat-
+  // colour hair cards, so tinting it would just fight the source art.
+  const mat = new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.name = 'headwearAccessory';
+  return mesh;
+}
+
 // ---- glue: apply charState onto one already-built avatar root -----------
 async function applyPersonalization(root, headBone) {
   if (charState.tint) applyTint(root, charState.tint);
@@ -1908,6 +1979,10 @@ async function applyPersonalization(root, headBone) {
   }
   if (charState.hairStyle && charState.hairStyle !== 'default') {
     headBone.add(await buildHairCap(charState.hairStyle, charState.hairColor ?? HAIR_COLOR_DEFAULT));
+  }
+  if (charState.headwear && charState.headwear !== 'none') {
+    const hw = await buildHeadwear(charState.headwear, charState.bodyType);
+    if (hw) headBone.add(hw);
   }
 }
 
@@ -2298,6 +2373,9 @@ const HAIR_STYLE_PRESETS = [
   { key: 'long_curly', label: 'Long Curly' }, { key: 'sleek_bun', label: 'Sleek Bun' },
   { key: 'double_buns', label: 'Double Buns' }, { key: 'cornrows', label: 'Cornrows' },
 ];
+const HEADWEAR_PRESETS = [
+  { key: 'none', label: 'None' }, { key: 'hood', label: 'Hood' },
+];
 function renderSwatchRow(containerId, items, isActive, onPick, shape) {
   const wrap = $(containerId);
   wrap.innerHTML = '';
@@ -2353,6 +2431,8 @@ function buildCustomizeUI() {
     async i => { charState.hairStyle = i.key; await rebuildCharacter(); }, 'shape');
   renderSwatchRow('custHairColor', HAIR_COLOR_PRESETS, i => charState.hairColor === i.hex,
     async i => { charState.hairColor = i.hex; await rebuildCharacter(); });
+  renderSwatchRow('custHeadwear', HEADWEAR_PRESETS, i => charState.headwear === i.key,
+    async i => { charState.headwear = i.key; await rebuildCharacter(); }, 'shape');
   renderSwatchRow('custBeard', BEARD_PRESETS, i => charState.beardStyle === i.key,
     async i => { charState.beardStyle = i.key; await rebuildCharacter(); }, 'shape');
   renderSwatchRow('custBeardColor', HAIR_COLOR_PRESETS, i => charState.beardColor === i.hex,
@@ -2396,6 +2476,7 @@ buildCustomizeUI._rerenderActive = () => {
   mark('custSkin', SKIN_PRESETS, 'tint', true);
   mark('custHairStyle', HAIR_STYLE_PRESETS, 'hairStyle');
   mark('custHairColor', HAIR_COLOR_PRESETS, 'hairColor');
+  mark('custHeadwear', HEADWEAR_PRESETS, 'headwear');
   mark('custBeard', BEARD_PRESETS, 'beardStyle');
   mark('custBeardColor', HAIR_COLOR_PRESETS, 'beardColor');
   mark('custGlasses', GLASSES_PRESETS, 'glassesStyle');
@@ -2439,6 +2520,7 @@ function buildPremadePicks() {
       setBodyType(p.key); charState.tint = p.tint;
       charState.glassesStyle = 'none'; charState.beardStyle = 'none'; charState.beardColor = null;
       charState.hairStyle = 'default'; charState.hairColor = null;
+      charState.headwear = 'none';
       charState.jawWidth = 1; charState.faceLength = 1;
       await rebuildCharacter();
       syncCustomizeUI();

@@ -14,10 +14,12 @@
 # negation to files inside a directory that's already excluded wholesale.)
 models/*
 !models/hair/
+!models/headwear/
 .env
 # scratch renders
 *.png
 !contact-sheet.png
+!models/headwear/*.png
 
 node_modules
 
