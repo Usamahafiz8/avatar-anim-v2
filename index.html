@@ -1898,25 +1898,37 @@ async function buildHairCap(style, hex) {
 }
 
 // ---- headwear: caps/hoods — a separate accessory category from hair ------
-// Sourced from Quaternius's "Modular Character Outfits - Fantasy" pack (CC0,
-// quaternius.itch.io/modular-character-outfits-fantasy) — the Ranger
-// outfit's hood ships as its own standalone skinned mesh (not baked into a
-// combined head like the hair packs), so it needed real bind-pose
-// extraction (skin-blend the joint matrices, then re-express relative to
-// this pack's own Head bone) rather than a straight primitive pull, but NO
-// manual fit correction afterward — verified by screenshot, it sits
-// correctly on this rig's Head bone with zero extra offset/scale, unlike
-// every hair style above. Baked once into the same compact .bin format as
-// the Quaternius hair (positions already in head-relative space), so
-// there's no per-frame skinning cost and no dependency on the source
-// glTF/skeleton at runtime.
-// Male and female hoods are separate meshes (fit to each body's own Head
-// bone during extraction) but share one texture — the source pack ships a
-// single Ranger material for both.
+// "hood" (Ranger Hood) is sourced from Quaternius's "Modular Character
+// Outfits - Fantasy" pack (CC0, quaternius.itch.io/modular-character-
+// outfits-fantasy) — the Ranger outfit's hood ships as its own standalone
+// skinned mesh (not baked into a combined head like the hair packs), so it
+// needed real bind-pose extraction (skin-blend the joint matrices, then
+// re-express relative to this pack's own Head bone) rather than a straight
+// primitive pull. It needed zero manual fit correction afterward — sits
+// correctly on this rig's Head bone straight out of the extraction.
+// "rogue_hood" is a second, unrelated CC0 source: KayKit's "Character Pack:
+// Adventurers" (kaylousberg.itch.io/kaykit-adventurers, mirrored on GitHub
+// at KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0) — the
+// Rogue_Hooded character's head mesh. This pack's own units needed a real
+// fit pass (scale ~0.28, +Y offset, and a Z-axis flip — the mesh initially
+// read as backwards, its "open" front covering the face no matter how it
+// was repositioned, until mirroring Z fixed it) tuned by screenshot
+// iteration, unlike the Ranger hood's first-try fit — a different source
+// pack has no reason to share the other's fit numbers.
+// Both are baked into the same compact .bin format as the Quaternius hair
+// (positions already in head-relative space, at each style's own found
+// scale/offset), so there's no per-frame skinning cost and no dependency
+// on the source glTF/skeleton at runtime.
 const HEADWEAR_FILES = {
   hood: { male: './models/headwear/hood_male.bin', female: './models/headwear/hood_female.bin' },
+  // One unisex mesh — the source pack ships the Rogue as a single
+  // character, not separate male/female builds like Quaternius's.
+  rogue_hood: { male: './models/headwear/rogue_hood.bin', female: './models/headwear/rogue_hood.bin' },
 };
-const HEADWEAR_TEXTURE = './models/headwear/hood_texture.png';
+const HEADWEAR_TEXTURES = {
+  hood: './models/headwear/hood_texture.png',
+  rogue_hood: './models/headwear/rogue_hood_texture.png',
+};
 const _headwearGeoCache = new Map();
 async function loadHeadwearGeometry(style, gender) {
   const key = style + '-' + gender;
@@ -1940,19 +1952,20 @@ async function loadHeadwearGeometry(style, gender) {
   _headwearGeoCache.set(key, geo);
   return geo;
 }
-let _headwearTexPromise = null;
-function loadHeadwearTexture() {
-  if (!_headwearTexPromise) {
-    _headwearTexPromise = new THREE.TextureLoader().loadAsync(HEADWEAR_TEXTURE).then(tex => {
+const _headwearTexCache = new Map();
+function loadHeadwearTexture(style) {
+  if (!_headwearTexCache.has(style)) {
+    const path = HEADWEAR_TEXTURES[style];
+    _headwearTexCache.set(style, new THREE.TextureLoader().loadAsync(path).then(tex => {
       tex.colorSpace = THREE.SRGBColorSpace;
       tex.flipY = false; // came from a glTF source (flipY=false convention)
       return tex;
-    });
+    }));
   }
-  return _headwearTexPromise;
+  return _headwearTexCache.get(style);
 }
 async function buildHeadwear(style, gender) {
-  const [geo, tex] = await Promise.all([loadHeadwearGeometry(style, gender), loadHeadwearTexture()]);
+  const [geo, tex] = await Promise.all([loadHeadwearGeometry(style, gender), loadHeadwearTexture(style)]);
   if (!geo) return null;
   // Unlit + the texture's own baked shading (not a flat hex tint like the
   // hair styles) — this piece has real diffuse detail, unlike the flat-
@@ -2374,7 +2387,8 @@ const HAIR_STYLE_PRESETS = [
   { key: 'double_buns', label: 'Double Buns' }, { key: 'cornrows', label: 'Cornrows' },
 ];
 const HEADWEAR_PRESETS = [
-  { key: 'none', label: 'None' }, { key: 'hood', label: 'Hood' },
+  { key: 'none', label: 'None' }, { key: 'hood', label: 'Ranger Hood' },
+  { key: 'rogue_hood', label: 'Rogue Hood' },
 ];
 function renderSwatchRow(containerId, items, isActive, onPick, shape) {
   const wrap = $(containerId);
