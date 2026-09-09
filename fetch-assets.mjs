@@ -57,14 +57,36 @@ const AVATARS = [
 // are static, 004 duplicates the male hands-clasped pose, and 003/006 are
 // near-duplicates of each other (arms flung wide, held — "ta-da!"). Only
 // one of that duplicate pair is worth adding: 003, as Ta-da.
+//
+// Fifth pass: explicitly asked for EVERY remaining clip in expression/,
+// regardless of the quality bar above — so every M_Standing_Expressions,
+// M_Talking_Variations and F_Talking_Variations file not already covered is
+// now included too. Many of these are the ones earlier passes screened out
+// (brief pose that settles back to neutral within ~1s, or near-static) —
+// that verdict doesn't change just because they're now in the picker, so
+// don't be surprised if some buttons look like they barely do anything.
 const CLIPS = [
   ['idle',       ['F_Standing_Idle_001']],
   ['dance',      ['F_Dances_001', 'F_Dances_005', 'F_Dances_007', 'M_Dances_008',
                   'M_Dances_004', 'M_Dances_006', 'M_Dances_007', 'M_Dances_009']],
   ['locomotion', ['F_Walk_002']],
-  ['expression', ['M_Standing_Expressions_008', 'M_Standing_Expressions_006',
-                  'M_Standing_Expressions_007', 'M_Talking_Variations_010',
-                  'F_Talking_Variations_003']],
+  ['expression', ['M_Standing_Expressions_001', 'M_Standing_Expressions_002',
+                  'M_Standing_Expressions_004', 'M_Standing_Expressions_005',
+                  'M_Standing_Expressions_006', 'M_Standing_Expressions_007',
+                  'M_Standing_Expressions_008', 'M_Standing_Expressions_009',
+                  'M_Standing_Expressions_010', 'M_Standing_Expressions_011',
+                  'M_Standing_Expressions_012', 'M_Standing_Expressions_013',
+                  'M_Standing_Expressions_014', 'M_Standing_Expressions_015',
+                  'M_Standing_Expressions_016', 'M_Standing_Expressions_017',
+                  'M_Standing_Expressions_018',
+                  'M_Talking_Variations_001', 'M_Talking_Variations_002',
+                  'M_Talking_Variations_003', 'M_Talking_Variations_004',
+                  'M_Talking_Variations_005', 'M_Talking_Variations_006',
+                  'M_Talking_Variations_007', 'M_Talking_Variations_008',
+                  'M_Talking_Variations_009', 'M_Talking_Variations_010',
+                  'F_Talking_Variations_001', 'F_Talking_Variations_002',
+                  'F_Talking_Variations_003', 'F_Talking_Variations_004',
+                  'F_Talking_Variations_005', 'F_Talking_Variations_006']],
 ];
 
 const exists = async p => { try { await stat(p); return true; } catch { return false; } };
