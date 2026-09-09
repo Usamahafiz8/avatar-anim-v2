@@ -52,14 +52,19 @@ const AVATARS = [
 // the 10 talking clips had sustained motion: 004 (hands clasp at chest) and
 // 009 (arm raises, hailing) were left out as redundant with Stressed/Wave;
 // 010 (both arms out, open-palm shrug) is genuinely new — no reaction here
-// reads as "I don't know"/confused — so it's in as Confused.
+// reads as "I don't know"/confused — so it's in as Confused. The 6
+// feminine-specific Talking_Variations clips were checked too: 001/002/005
+// are static, 004 duplicates the male hands-clasped pose, and 003/006 are
+// near-duplicates of each other (arms flung wide, held — "ta-da!"). Only
+// one of that duplicate pair is worth adding: 003, as Ta-da.
 const CLIPS = [
   ['idle',       ['F_Standing_Idle_001']],
   ['dance',      ['F_Dances_001', 'F_Dances_005', 'F_Dances_007', 'M_Dances_008',
                   'M_Dances_004', 'M_Dances_006', 'M_Dances_007', 'M_Dances_009']],
   ['locomotion', ['F_Walk_002']],
   ['expression', ['M_Standing_Expressions_008', 'M_Standing_Expressions_006',
-                  'M_Standing_Expressions_007', 'M_Talking_Variations_010']],
+                  'M_Standing_Expressions_007', 'M_Talking_Variations_010',
+                  'F_Talking_Variations_003']],
 ];
 
 const exists = async p => { try { await stat(p); return true; } catch { return false; } };

@@ -824,6 +824,11 @@ const CLIP_FILES = [
   // redundant with Stressed/Wave, left out. 010 (both arms out, open-palm
   // shrug) is genuinely new — nothing else here reads as "I don't know."
   { label: 'Confused',   file: 'M_Talking_Variations_010',    icon: '\u{1F937}' },
+  // The 6 feminine-specific Talking_Variations clips: 001/002/005 static,
+  // 004 duplicates the male hands-clasped pose (already rejected). 003 and
+  // 006 are near-duplicates of each other (arms flung wide open, held —
+  // "ta-da!") — only one is worth having, so 003 is in, 006 left out.
+  { label: 'Ta-da',      file: 'F_Talking_Variations_003',    icon: '\u{1F917}' },
 ];
 
 // The player's equipped taunts. Limits PLAYER-SENT reactions only — game events
@@ -881,6 +886,7 @@ const FACES = {
   'Angry':         { smile: 0,   open: .10, squint: .70 },
   'Stressed':      { smile: 0,   open: .05, squint: .40 },
   'Confused':      { smile: .10, open: .06, squint: .20 },
+  'Ta-da':         { smile: .70, open: .25, squint: 0   },
 };
 
 const CLIP_MAP = {
