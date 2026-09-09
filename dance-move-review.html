@@ -127,6 +127,15 @@
   .pick button:hover:not(.on) { color: var(--text); }
   button:focus-visible, .play-btn:focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }
 
+  .voice { display: flex; gap: 5px; }
+  .voice button {
+    width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--line);
+    background: transparent; color: var(--text); font-size: 12px; display: grid; place-items: center;
+  }
+  .voice button:disabled { opacity: .35; cursor: default; }
+  .voice .vrec.on { background: var(--cut); color: #1a0505; border-color: var(--cut); }
+  .row .vstatus { font-family: var(--mono); font-size: 10.5px; color: var(--faint); margin-top: 1px; }
+
   #offlineNote {
     margin-top: 16px; font-size: 12.5px; color: var(--faint); display: none;
   }
@@ -335,31 +344,123 @@ async function setPick(clip, status) {
   } catch (e) { console.error('save failed', e); }
 }
 
+// ---------- custom voice lines ----------
+// Same feature and same storage key as the main game (index.html) — when
+// this page is served from the same origin (the local dev server), a line
+// recorded here shows up in the game and vice versa, since localStorage is
+// per-origin, not per-page.
+const isTalkClip = clip => clip.file.includes('Talking_Variations');
+const VOICE_KEY = 'sbj.voiceLines.v1';
+function loadVoices() { try { return JSON.parse(localStorage.getItem(VOICE_KEY) || '{}'); } catch { return {}; } }
+function saveVoices(v) { try { localStorage.setItem(VOICE_KEY, JSON.stringify(v)); } catch {} }
+let VOICES = loadVoices();
+let activeRecorder = null, activeRecordLabel = null;
+
+function voiceStatusText(label) {
+  if (activeRecorder && activeRecordLabel === label) return 'recording…';
+  return VOICES[label] ? VOICES[label].duration.toFixed(1) + 's recorded' : 'not recorded';
+}
+function refreshVoiceRow(label) {
+  const row = document.querySelector(`.row[data-label="${label}"]`);
+  if (!row) return;
+  const recording = activeRecorder && activeRecordLabel === label;
+  const rec = row.querySelector('.vrec'), play = row.querySelector('.vplay'), clr = row.querySelector('.vclear');
+  rec.textContent = recording ? '■' : '●';
+  rec.title = recording ? 'Stop recording' : 'Record';
+  rec.classList.toggle('on', recording);
+  rec.disabled = !!activeRecorder && !recording;
+  play.disabled = !VOICES[label];
+  clr.disabled = !VOICES[label];
+  row.querySelector('.vstatus').textContent = voiceStatusText(label);
+}
+function refreshAllVoiceRows() { for (const c of CLIPS) if (isTalkClip(c)) refreshVoiceRow(c.label); }
+
+async function toggleRecord(label) {
+  if (activeRecorder && activeRecordLabel === label) { activeRecorder.stop(); return; }
+  if (activeRecorder) return;
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+  catch { alert('Microphone access denied or unavailable.'); return; }
+  const chunks = [];
+  const rec = new MediaRecorder(stream);
+  rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+  rec.onstop = async () => {
+    stream.getTracks().forEach(t => t.stop());
+    activeRecorder = null; activeRecordLabel = null;
+    const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' });
+    const url = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(blob); });
+    const dur = await new Promise(res => {
+      const a = new Audio(url);
+      a.addEventListener('loadedmetadata', () => res(a.duration || 0));
+      a.addEventListener('error', () => res(0));
+    });
+    if (dur > 0) { VOICES[label] = { url, duration: dur }; saveVoices(VOICES); }
+    refreshAllVoiceRows();
+  };
+  rec.start();
+  activeRecorder = rec; activeRecordLabel = label;
+  refreshAllVoiceRows();
+  setTimeout(() => { if (activeRecorder === rec) rec.stop(); }, 12000);
+}
+function clearVoice(label) { delete VOICES[label]; saveVoices(VOICES); refreshAllVoiceRows(); }
+function previewVoice(label) { const v = VOICES[label]; if (v) new Audio(v.url).play().catch(() => {}); }
+
+// Same tightened speed-matching rule as the game: only nudge playback rate
+// when the recording is already close to the clip's own length, otherwise
+// play at normal speed rather than stretch the voice into something
+// slowed-down and distorted.
+function playVoiceForClip(clip) {
+  const v = VOICES[clip.label];
+  if (!v || !clip.threeClip) return;
+  const hold = clip.threeClip.duration || 0;
+  if (!hold) return;
+  const audio = new Audio(v.url);
+  const ratio = v.duration > 0 ? v.duration / hold : 1;
+  audio.playbackRate = (ratio >= .85 && ratio <= 1.2) ? ratio : 1;
+  audio.play().catch(() => {});
+  setTimeout(() => audio.pause(), hold * 1000 + 30);
+}
+
 // ---------- list ----------
 const listEl = document.getElementById('list');
 CLIPS.forEach((clip, i) => {
   const row = document.createElement('div');
   row.className = 'row';
   row.dataset.file = clip.file;
+  row.dataset.label = clip.label;
+  const talk = isTalkClip(clip);
   row.innerHTML = `
     <div class="num">${String(i + 1).padStart(2, '0')}</div>
     <div class="icon">${clip.icon}</div>
     <div class="row-main">
       <div class="label display">${clip.label}</div>
       <div class="file">${clip.file}.glb</div>
+      ${talk ? `<div class="vstatus">not recorded</div>` : ''}
     </div>
     <div class="controls">
       <button class="play-btn" aria-label="Play ${clip.label}" title="Play">&#9654;</button>
+      ${talk ? `
+      <div class="voice">
+        <button class="vrec" title="Record">&#9679;</button>
+        <button class="vplay" title="Preview" disabled>&#9654;</button>
+        <button class="vclear" title="Delete recording" disabled>&#10005;</button>
+      </div>` : ''}
       <div class="pick">
         <button class="keep">Keep</button>
         <button class="cut">Cut</button>
       </div>
     </div>`;
-  row.querySelector('.play-btn').onclick = () => playClip(clip);
+  row.querySelector('.play-btn').onclick = () => { playClip(clip); if (talk) playVoiceForClip(clip); };
   row.querySelector('.keep').onclick = () => setPick(clip, 'keep');
   row.querySelector('.cut').onclick = () => setPick(clip, 'cut');
+  if (talk) {
+    row.querySelector('.vrec').onclick = () => toggleRecord(clip.label);
+    row.querySelector('.vplay').onclick = () => previewVoice(clip.label);
+    row.querySelector('.vclear').onclick = () => clearVoice(clip.label);
+  }
   listEl.appendChild(row);
 });
+refreshAllVoiceRows();
 
 if (offline) {
   for (const c of CLIPS) applyStatus(c.file, localPicks[c.file] || null);
