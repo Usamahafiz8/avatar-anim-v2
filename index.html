@@ -182,6 +182,13 @@
   #event-buttons .act, #clip-buttons .act {
     width: auto; flex: 0 1 40px; margin-top: 0; padding: 6px; text-align: center; font-size: 15px;
   }
+  #voice-lines { display: flex; flex-direction: column; gap: 4px; }
+  .vrow { display: flex; align-items: center; gap: 6px; }
+  .vrow .vlabel { width: 64px; flex: none; font-size: 11px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .vrow button { border: 1px solid var(--line); background: transparent; color: var(--text); border-radius: 6px; padding: 3px 7px; font-size: 12px; cursor: pointer; flex: none; }
+  .vrow .vrec.on { background: var(--bad); color: #1a0505; border-color: var(--bad); }
+  .vrow .vplay:disabled, .vrow .vclear:disabled { opacity: .35; cursor: default; }
+  .vrow .vstatus { flex: 1; font-size: 10.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .chk { display: flex; align-items: center; gap: 6px; padding: 3px 0; color: var(--muted); font-size: 11px; cursor: pointer; }
   .chk input { accent-color: var(--lime); width: 14px; height: 14px; }
   input[type=range] { accent-color: var(--lime); }
@@ -509,6 +516,14 @@
         </div>
 
         <div class="grp"><label>Raw reactions</label><div id="clip-buttons"></div></div>
+        <div class="grp"><label>Custom voice lines</label>
+          <div id="voice-lines"></div>
+          <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.4;">
+            Record your own line for a talk reaction. Playback is time-matched to that
+            reaction's animation length (sped up or slowed down as needed). Falls back
+            to the synthesized blips when nothing is recorded.
+          </div>
+        </div>
         <div class="grp"><button class="act" id="reset-idle">&#8634; Reset / return to idle</button></div>
         <div class="grp">
           <label>Framing</label>
@@ -1170,7 +1185,7 @@ async function build() {
     avatars.push(av);
     playClip(av, rig.idle, 0);
   }
-  layout(); buildClipButtons(); updateStatic(); invalidate();
+  layout(); buildClipButtons(); buildVoiceLines(); updateStatic(); invalidate();
 }
 
 // Seat positions as fractions of the felt: {x from left, FEET y from top}.
@@ -1257,7 +1272,9 @@ function triggerAll(label) {
     av.alphaTarget = 1;                       // pop in for the reaction
     const hold = av.actions[name]?.getClip().duration ?? DEFAULT_HOLD;
     runEffect(av, label, hold);
-    if (name.includes('Talking_Variations')) { playTalkBlips(hold); runSpeech(av, label, hold); }
+    if (name.includes('Talking_Variations')) {
+      if (!playVoiceLine(label, hold)) { playTalkBlips(hold); runSpeech(av, label, hold); }
+    }
     if (isIdle) return;
     // start fading home before the clip ends, so it eases out rather than cutting
     const startFade = Math.max(0.1, hold - FADE_HOME);
@@ -1516,6 +1533,93 @@ function runSpeech(a, label, hold) {
     }
     reposition();
   }, 90);
+}
+
+// ── custom voice lines ───────────────────────────────────────────────────
+// Optional: record your own line for a talk reaction instead of the
+// synthesized blips. Stored locally only (base64 in localStorage, never
+// leaves the browser). Playback is time-matched to that reaction's own
+// clip duration — playbackRate scales the recording to fill exactly the
+// same span (clamped so it doesn't distort into noise), with a hard stop
+// at that duration as a backstop for anything the rate clamp can't cover.
+const VOICE_KEY = 'sbj.voiceLines.v1';
+function loadVoices() { try { return JSON.parse(localStorage.getItem(VOICE_KEY) || '{}'); } catch { return {}; } }
+function saveVoices(v) { try { localStorage.setItem(VOICE_KEY, JSON.stringify(v)); } catch {} }
+let VOICES = loadVoices();
+let activeRecorder = null, activeRecordLabel = null;
+
+async function toggleRecord(label) {
+  if (activeRecorder && activeRecordLabel === label) { activeRecorder.stop(); return; }
+  if (activeRecorder) return;                          // one recording at a time
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+  catch { alert('Microphone access denied or unavailable.'); return; }
+  const chunks = [];
+  const rec = new MediaRecorder(stream);
+  rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+  rec.onstop = async () => {
+    stream.getTracks().forEach(t => t.stop());
+    activeRecorder = null; activeRecordLabel = null;
+    const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' });
+    const url = await new Promise(res => {
+      const fr = new FileReader();
+      fr.onload = () => res(fr.result);
+      fr.readAsDataURL(blob);
+    });
+    const dur = await new Promise(res => {
+      const a = new Audio(url);
+      a.addEventListener('loadedmetadata', () => res(a.duration || 0));
+      a.addEventListener('error', () => res(0));
+    });
+    if (dur > 0) { VOICES[label] = { url, duration: dur }; saveVoices(VOICES); }
+    buildVoiceLines();
+  };
+  rec.start();
+  activeRecorder = rec; activeRecordLabel = label;
+  buildVoiceLines();
+  setTimeout(() => { if (activeRecorder === rec) rec.stop(); }, 12000); // forgotten-recording safety cap
+}
+
+function clearVoice(label) { delete VOICES[label]; saveVoices(VOICES); buildVoiceLines(); }
+function previewVoice(label) { const v = VOICES[label]; if (v) new Audio(v.url).play().catch(() => {}); }
+
+// Returns true if a custom recording played (caller should skip the
+// synthesized fallback), false if there's nothing recorded for this label.
+function playVoiceLine(label, hold) {
+  if (!SFX_ON) return false;
+  const v = VOICES[label];
+  if (!v || !hold) return false;
+  const audio = new Audio(v.url);
+  const ratio = v.duration > 0 ? v.duration / hold : 1;
+  audio.playbackRate = Math.min(3, Math.max(.4, ratio));
+  audio.play().catch(() => {});
+  setTimeout(() => audio.pause(), hold * 1000 + 30);
+  return true;
+}
+
+function buildVoiceLines() {
+  const wrap = $('voice-lines'); if (!wrap) return;
+  wrap.innerHTML = '';
+  for (const label of Object.keys(TALK_LINES)) {
+    const recording = activeRecorder && activeRecordLabel === label;
+    const row = document.createElement('div'); row.className = 'vrow';
+    const lab = document.createElement('span'); lab.className = 'vlabel'; lab.textContent = label;
+    const recBtn = document.createElement('button'); recBtn.className = 'vrec' + (recording ? ' on' : '');
+    recBtn.textContent = recording ? '■' : '●';
+    recBtn.title = recording ? 'Stop recording' : 'Record';
+    recBtn.disabled = !!activeRecorder && !recording;
+    recBtn.onclick = () => toggleRecord(label);
+    const playBtn = document.createElement('button'); playBtn.className = 'vplay'; playBtn.textContent = '▶';
+    playBtn.title = 'Preview'; playBtn.disabled = !VOICES[label];
+    playBtn.onclick = () => previewVoice(label);
+    const clearBtn = document.createElement('button'); clearBtn.className = 'vclear'; clearBtn.textContent = '✕';
+    clearBtn.title = 'Delete recording'; clearBtn.disabled = !VOICES[label];
+    clearBtn.onclick = () => clearVoice(label);
+    const status = document.createElement('span'); status.className = 'vstatus';
+    status.textContent = recording ? 'recording…' : (VOICES[label] ? VOICES[label].duration.toFixed(1) + 's recorded' : 'not recorded');
+    row.append(lab, recBtn, playBtn, clearBtn, status);
+    wrap.appendChild(row);
+  }
 }
 
 function setMorph(a, key, value) {
