@@ -175,6 +175,13 @@
   .seg button[aria-pressed="true"] { background: var(--lime); color: #10240a; border-color: var(--lime); }
   .act { width: 100%; margin-top: 4px; text-align: left; padding-left: 9px; }
   .act.primary { background: rgba(194,245,63,.15); border-color: var(--line); }
+  /* Game Events / Raw Reactions are icon-only buttons — the default .act
+     (width:100%, one per row) turned a handful of emoji into a long
+     scrolling list. Wrap them into a compact grid instead. */
+  #event-buttons, #clip-buttons { display: flex; flex-wrap: wrap; gap: 4px; }
+  #event-buttons .act, #clip-buttons .act {
+    width: auto; flex: 0 1 40px; margin-top: 0; padding: 6px; text-align: center; font-size: 15px;
+  }
   .chk { display: flex; align-items: center; gap: 6px; padding: 3px 0; color: var(--muted); font-size: 11px; cursor: pointer; }
   .chk input { accent-color: var(--lime); width: 14px; height: 14px; }
   input[type=range] { accent-color: var(--lime); }
@@ -816,22 +823,21 @@ const saveLoadout = () => { try { localStorage.setItem(LOADOUT_KEY, JSON.stringi
 // someone back, win the game, send a reaction". These are what the real
 // integration will bind to — the realtime layer already emits round:result and
 // action:committed, so this is the shape, not a guess.
+// Reactions referenced here must exist in CLIP_FILES — 'Lose'/'Laugh'/
+// 'Angry' used to (see CLIP_FILES comments on why they were cut: unconvincing
+// on this rig), leaving these buttons silently dead (triggerAll no-ops on an
+// unknown label). No replacement clip reads as losing/laughing/annoyed, so
+// those three events are dropped rather than pointed at the wrong animation.
 const GAME_EVENTS = [
   { event: 'Win a hand',       reaction: 'Celebrate', icon: '\u{1F389}' },
   { event: 'Win the game',     reaction: 'Dance 1',   icon: '\u{1F3C6}' },
-  { event: 'Lose a hand',      reaction: 'Lose',      icon: '\u{1F61E}' },
-  { event: 'Opponent misses',  reaction: 'Laugh',     icon: '\u{1F602}' },
-  { event: 'Annoyed',          reaction: 'Angry',     icon: '\u{1F620}' },
 ];
 
 // Which cartoon effect rides along with which reaction.
 //   anchor 'ears'  both sides of the head   'crown' above it   'brow' upper face
 
 const EFFECTS = {
-  'Angry':     { kind: 'steam', anchor: 'ears',  every: 95,  dur: 1400 },
   'Celebrate': { kind: 'star',  anchor: 'crown', every: 110, dur: 1300 },
-  'Laugh':     { kind: 'drop',  anchor: 'brow',  every: 300, dur: 1100 },
-  'Lose':      { kind: 'drop',  anchor: 'brow',  every: 420, dur: 1400 },
 };
 
 // Facial expression per reaction. The avatar exposes mouthSmile, mouthOpen and
@@ -849,9 +855,6 @@ const FACES = {
   'Dance 3':       { smile: .55, open: .10, squint: 0   },
   'Dance 4':       { smile: .65, open: .20, squint: 0   },
   'Dance 5':       { smile: .60, open: .12, squint: 0   },
-  'Angry':         { smile: 0,   open: .15, squint: .45 },
-  'Laugh':         { smile: 1,   open: .55, squint: .35 },
-  'Lose':          { smile: 0,   open: .08, squint: .50 },
 };
 
 const CLIP_MAP = {
@@ -2667,11 +2670,15 @@ $('auto-demo').onclick = () => {
   const btn = $('auto-demo');
   if (demoTimer) { clearTimeout(demoTimer); demoTimer = null; btn.textContent = '▶ Auto demo'; return; }
   btn.textContent = '■ Stop demo';
-  const script = ['Win a hand','Taunt','Opponent misses','Lose a hand','Annoyed',
-                  'Bring back','Refuse / no','Win the game'];
+  // Cycles GAME_EVENTS itself rather than a separately hand-typed list of
+  // event names — the previous hardcoded script named 6 events that were
+  // never in GAME_EVENTS (some never had a matching reaction at all), so
+  // 3 of every 4 "steps" silently sat through a dead pause instead of
+  // reacting. Deriving it from the live list means it can't drift out of
+  // sync with GAME_EVENTS again.
   let i = 0;
   const step = () => {
-    const ev = GAME_EVENTS.find(e => e.event === script[i % script.length]);
+    const ev = GAME_EVENTS[i % GAME_EVENTS.length];
     // Wait for the reaction's own full clip length (reactions now play to the
     // end, not a fixed cutoff), not a one-size-fits-all pause.
     let wait = DEFAULT_HOLD;
