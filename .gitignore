@@ -5,7 +5,15 @@
 # part, to any third party." Committing them to a repo is redistribution.
 #
 # Run `node fetch-assets.mjs` to pull them from Ready Player Me's own repos.
-models/
+#
+# Hair meshes ARE committed, unlike everything else under models/ — they're
+# CC0 (public domain), not RPM's restricted animation-library assets, so
+# there's no redistribution problem. See index.html's hair-styles section
+# for provenance (ported from the sibling character-customizer project).
+# (models/* + a negation, not a bare models/ exclusion — git won't apply a
+# negation to files inside a directory that's already excluded wholesale.)
+models/*
+!models/hair/
 .env
 # scratch renders
 *.png

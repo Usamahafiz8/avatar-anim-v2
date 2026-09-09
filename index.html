@@ -554,7 +554,7 @@
     <div id="customizeBody">
 
       <p class="cz-intro">Take or upload a selfie and we'll match your avatar's skin tone, glasses and
-        facial hair automatically. Use Fine-tune details below for face shape.</p>
+        facial hair automatically. Use Fine-tune details below for hair and face shape.</p>
 
       <div class="cz-card" id="uploadCard">
         <h2 class="cz-h2"><span class="cz-step">1</span>Your photo</h2>
@@ -599,6 +599,14 @@
               <div class="cz-section">
                 <div class="cz-label-row"><span class="cz-label">Skin Tone</span></div>
                 <div class="cz-swatchRow" id="custSkin"></div>
+              </div>
+              <div class="cz-section">
+                <div class="cz-label-row"><span class="cz-label">Hair Style</span></div>
+                <div class="cz-swatchRow shapes" id="custHairStyle"></div>
+              </div>
+              <div class="cz-section" id="custHairColorSection">
+                <div class="cz-label-row"><span class="cz-label">Hair Color</span></div>
+                <div class="cz-swatchRow" id="custHairColor"></div>
               </div>
             </div>
           </div>
@@ -1030,7 +1038,7 @@ async function build() {
     // materials are independent per-avatar clones above, so tinting/painting
     // one seat's texture never bleeds into another's. See charState/
     // applyPersonalization below; a no-op until the user actually customizes.
-    applyPersonalization(root, headBone);
+    await applyPersonalization(root, headBone);
     const av = { root, mixer, actions: {}, current: null, headBone, headTopBone, morphMeshes, meshes,
                  alpha: 1, alphaTarget: 1,
                  face: { smile: .15, open: 0, squint: 0 }, faceTarget: { ...FACES['Idle'] },
@@ -1401,6 +1409,7 @@ async function runBench() {
 // Customize panel all read/write this and rebuild from it.
 const charState = {
   bodyType: 'male', tint: null, glassesStyle: 'none', beardStyle: 'none', beardColor: null,
+  hairStyle: 'default', hairColor: null,
   jawWidth: 1, faceLength: 1,
 };
 // Beard is restricted to the male body (custBeardSection hides outside
@@ -1758,8 +1767,89 @@ function buildBeard(style = 'full', hex) {
   return group;
 }
 
+// ---- hair styles: real meshes, not procedural shapes ----------------------
+// A dome built from primitive geometry (this project's earlier attempt)
+// either read as a flat plastic blob or, at the coverage needed to fully
+// hide the model's own baked hair, ballooned out far enough to cover the
+// face like a mask. Ported instead from the sibling character-customizer
+// project (E:\avatar-anim-v2\character-customizer), which sources real hair
+// meshes from Quaternius's "Ultimate Modular Characters" pack (CC0, public
+// domain, creativecommons.org/publicdomain/zero/1.0) — see that project's
+// README for the full extraction/fit story (measured against this exact
+// rig's Head→HeadTop_End = 0.229m). That project's Masculine.glb/
+// Feminine.glb are verified byte-identical (md5sum) to this project's own,
+// so the geometry and fit numbers below carry over with no re-measuring.
+//
+// character-customizer also has a textured "Dreads" style (a back-of-head
+// ponytail) that this project deliberately does NOT include: rotating the
+// avatar 180° confirmed it renders correctly, but this app's camera is
+// fixed and front-only (unlike that project's free-orbit view) — a
+// ponytail sitting entirely behind the head is permanently invisible here,
+// not a real option to offer.
+const HAIR_STYLE_FILES = {
+  casual: './models/hair/casual.bin',
+  casual2: './models/hair/casual2.bin',
+  adventurer: './models/hair/adventurer.bin',
+  beach: './models/hair/beach.bin',
+  suit: './models/hair/suit.bin',
+  king: './models/hair/king.bin',
+  punk: './models/hair/punk.bin',
+};
+// Quaternius's hair is ~700+ small disconnected "hair card" pieces, each fit
+// snugly to QUATERNIUS's own head — a uniform scale-up doesn't close the gap
+// against this rig's slightly different contour (it grows the cards' distance
+// from the scalp right along with the cards). Pulling them radially inward
+// (X/Z only) does.
+const HAIR_FIT_OFFSET_Y = -0.02;
+const HAIR_FIT_RADIAL = 0.75;
+const HAIR_COLOR_DEFAULT = 0x2a1a12;
+
+const _hairGeoCache = new Map();
+async function loadHairGeometry(style) {
+  if (_hairGeoCache.has(style)) return _hairGeoCache.get(style);
+  const buf = await fetch(HAIR_STYLE_FILES[style]).then(r => r.arrayBuffer());
+  const dv = new DataView(buf);
+  const vertCount = dv.getUint32(0, true);
+  const idxCount = dv.getUint32(4, true);
+  let off = 8;
+  const positions = new Float32Array(buf, off, vertCount * 3); off += vertCount * 3 * 4;
+  const normals = new Float32Array(buf, off, vertCount * 3); off += vertCount * 3 * 4;
+  const uvs = new Float32Array(buf, off, vertCount * 2); off += vertCount * 2 * 4;
+  const indices = new Uint32Array(buf, off, idxCount);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+  geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+  geo.setIndex(new THREE.BufferAttribute(indices, 1));
+  _hairGeoCache.set(style, geo);
+  return geo;
+}
+function buildHairAccessoryMaterial(hex) {
+  // MeshBasicMaterial (unlit) — this avatar's own baked body material is
+  // flat/unlit (KHR_materials_unlit), so a lit material here rendered grey/
+  // washed-out next to it (confirmed by screenshot in character-customizer).
+  // convertSRGBToLinear compensates for renderer.outputColorSpace re-encoding
+  // the framebuffer on output — a texture has its own colorSpace to offset
+  // that, a plain hex Color doesn't, so it rendered lighter than picked
+  // without this.
+  return new THREE.MeshBasicMaterial({
+    color: new THREE.Color(hex).convertSRGBToLinear(),
+    side: THREE.DoubleSide,
+  });
+}
+async function buildHairCap(style, hex) {
+  const geo = await loadHairGeometry(style);
+  const group = new THREE.Group();
+  group.name = 'hairAccessory';
+  const mesh = new THREE.Mesh(geo, buildHairAccessoryMaterial(hex));
+  group.position.y = HAIR_FIT_OFFSET_Y;
+  mesh.scale.set(HAIR_FIT_RADIAL, 1, HAIR_FIT_RADIAL);
+  group.add(mesh);
+  return group;
+}
+
 // ---- glue: apply charState onto one already-built avatar root -----------
-function applyPersonalization(root, headBone) {
+async function applyPersonalization(root, headBone) {
   if (charState.tint) applyTint(root, charState.tint);
   if (charState.jawWidth !== 1 || charState.faceLength !== 1)
     applyFaceShape(root, { jawWidth: charState.jawWidth, faceLength: charState.faceLength });
@@ -1771,6 +1861,9 @@ function applyPersonalization(root, headBone) {
   }
   if (charState.beardStyle && charState.beardStyle !== 'none') {
     headBone.add(buildBeard(charState.beardStyle, charState.beardColor));
+  }
+  if (charState.hairStyle && charState.hairStyle !== 'default') {
+    headBone.add(await buildHairCap(charState.hairStyle, charState.hairColor ?? HAIR_COLOR_DEFAULT));
   }
 }
 
@@ -2137,6 +2230,14 @@ const HAIR_COLOR_PRESETS = [
   { hex: '#7a5a35', label: 'Chestnut' }, { hex: '#c9a15a', label: 'Blonde' },
   { hex: '#8a3a2a', label: 'Auburn' }, { hex: '#8a8a8a', label: 'Grey' },
 ];
+// 'default' means the model's own baked hair — the only style with no
+// accessory mesh at all, so Hair Color is a no-op there.
+const HAIR_STYLE_PRESETS = [
+  { key: 'default', label: 'Default' }, { key: 'casual', label: 'Casual' },
+  { key: 'casual2', label: 'Casual 2' }, { key: 'adventurer', label: 'Adventurer' },
+  { key: 'beach', label: 'Beach' }, { key: 'suit', label: 'Suit' },
+  { key: 'king', label: 'King' }, { key: 'punk', label: 'Punk' },
+];
 function renderSwatchRow(containerId, items, isActive, onPick, shape) {
   const wrap = $(containerId);
   wrap.innerHTML = '';
@@ -2188,6 +2289,10 @@ function renderLoadoutUI() {
 function buildCustomizeUI() {
   renderSwatchRow('custSkin', SKIN_PRESETS, i => charState.tint && nearestPreset(charState.tint, SKIN_PRESETS) === i.hex,
     async i => { charState.tint = i.hex; await rebuildCharacter(); });
+  renderSwatchRow('custHairStyle', HAIR_STYLE_PRESETS, i => charState.hairStyle === i.key,
+    async i => { charState.hairStyle = i.key; await rebuildCharacter(); }, 'shape');
+  renderSwatchRow('custHairColor', HAIR_COLOR_PRESETS, i => charState.hairColor === i.hex,
+    async i => { charState.hairColor = i.hex; await rebuildCharacter(); });
   renderSwatchRow('custBeard', BEARD_PRESETS, i => charState.beardStyle === i.key,
     async i => { charState.beardStyle = i.key; await rebuildCharacter(); }, 'shape');
   renderSwatchRow('custBeardColor', HAIR_COLOR_PRESETS, i => charState.beardColor === i.hex,
@@ -2205,6 +2310,10 @@ function buildCustomizeUI() {
 function syncCustomizeUI() {
   for (const b of $('custBodySeg').children) b.setAttribute('aria-pressed', String(b.dataset.b === charState.bodyType));
   $('custBeardSection').hidden = charState.bodyType !== 'male';
+  // Default has no accessory mesh to tint — a colour swatch that visibly
+  // does nothing is worse than no swatch, same reasoning as hiding Beard
+  // for a non-male body.
+  $('custHairColorSection').hidden = charState.hairStyle === 'default';
   buildCustomizeUI._rerenderActive?.();
 }
 // Re-render just the pressed state without rebuilding every button from
@@ -2225,6 +2334,8 @@ buildCustomizeUI._rerenderActive = () => {
   // (see renderSwatchRow's custSkin call) — `nearest` highlights the closest
   // swatch for orientation without implying an exact match.
   mark('custSkin', SKIN_PRESETS, 'tint', true);
+  mark('custHairStyle', HAIR_STYLE_PRESETS, 'hairStyle');
+  mark('custHairColor', HAIR_COLOR_PRESETS, 'hairColor');
   mark('custBeard', BEARD_PRESETS, 'beardStyle');
   mark('custBeardColor', HAIR_COLOR_PRESETS, 'beardColor');
   mark('custGlasses', GLASSES_PRESETS, 'glassesStyle');
@@ -2267,6 +2378,7 @@ function buildPremadePicks() {
       el.dataset.active = 'true';
       setBodyType(p.key); charState.tint = p.tint;
       charState.glassesStyle = 'none'; charState.beardStyle = 'none'; charState.beardColor = null;
+      charState.hairStyle = 'default'; charState.hairColor = null;
       charState.jawWidth = 1; charState.faceLength = 1;
       await rebuildCharacter();
       syncCustomizeUI();
@@ -2539,11 +2651,13 @@ function renderQuickbar() {
 
 $('customizeToggle').onclick = () => {
   $('customizeOverlay').classList.add('on');
+  $('opp').style.display = 'none';
   keepAvatarVisible();
   boostAvatarForCustomize(true);
 };
 $('customizeClose2').onclick = () => {
   $('customizeOverlay').classList.remove('on');
+  $('opp').style.display = '';
   boostAvatarForCustomize(false);
 };
 // Tap the dimmed backdrop (not the sheet itself) to close, same as any
@@ -2552,6 +2666,7 @@ $('customizeClose2').onclick = () => {
 $('customizeOverlay').addEventListener('click', e => {
   if (e.target.id === 'customizeOverlay') {
     $('customizeOverlay').classList.remove('on');
+    $('opp').style.display = '';
     boostAvatarForCustomize(false);
   }
 });
