@@ -226,20 +226,6 @@
     100% { transform: translate(calc(-50% + var(--dx,0px)), calc(-50% - var(--rise,70px))) scale(1) rotate(var(--rot,180deg)); opacity: 0; }
   }
 
-  .fx-halo {
-    border-radius: 50%;
-    background: transparent;
-    border: 3px solid rgba(255,224,130,.9);
-    box-shadow: 0 0 6px 1px rgba(255,224,130,.55), inset 0 0 4px rgba(255,255,255,.6);
-    animation: halo var(--d,1.4s) ease-out forwards;
-  }
-  @keyframes halo {
-    0%   { transform: translate(-50%,-50%) scale(.5) rotate(0deg);   opacity: 0; }
-    18%  { opacity: 1; }
-    60%  { opacity: .85; }
-    100% { transform: translate(calc(-50% + var(--dx,0px)), calc(-50% - var(--rise,50px))) scale(1.3) rotate(var(--rot,20deg)); opacity: 0; }
-  }
-
   .fx-drop {
     width: var(--sz,13px); height: calc(var(--sz,13px) * 1.35);
     background: linear-gradient(#dff1ff, #8fc7ee);
@@ -832,11 +818,6 @@ const CLIP_FILES = [
   // across all three passes shake or bounce in a laugh-like way.
   { label: 'Angry',      file: 'M_Standing_Expressions_006',  icon: '\u{1F620}' },
   { label: 'Stressed',   file: 'M_Standing_Expressions_007',  icon: '\u{1F62B}' },
-  // 'Angel' — no serene/innocent body-language clip exists anywhere in the
-  // library (same conclusion as every other pass above), so this reuses the
-  // calm Idle pose rather than force a bad match. What makes it read as its
-  // own reaction is the halo VFX + warm face below, not the body motion.
-  { label: 'Angel',      file: 'F_Standing_Idle_001',         icon: '\u{1F607}' },
 ];
 
 // The player's equipped taunts. Limits PLAYER-SENT reactions only — game events
@@ -874,7 +855,6 @@ const GAME_EVENTS = [
 const EFFECTS = {
   'Celebrate': { kind: 'star',  anchor: 'crown', every: 110, dur: 1300 },
   'Angry':     { kind: 'steam', anchor: 'ears',  every: 260, dur: 900  },
-  'Angel':     { kind: 'halo',  anchor: 'crown', every: 300, dur: 1400 },
 };
 
 // Facial expression per reaction. The avatar exposes mouthSmile, mouthOpen and
@@ -894,7 +874,6 @@ const FACES = {
   'Dance 5':       { smile: .60, open: .12, squint: 0   },
   'Angry':         { smile: 0,   open: .10, squint: .70 },
   'Stressed':      { smile: 0,   open: .05, squint: .40 },
-  'Angel':         { smile: .55, open: 0,   squint: 0   },
 };
 
 const CLIP_MAP = {
@@ -1322,12 +1301,6 @@ function spawnFx(a, cfg) {
       el.style.setProperty('--dx', rnd(-p.s * .55, p.s * .55) + 'px');
       el.style.setProperty('--rise', rnd(p.s * .30, p.s * .70) + 'px');
       el.style.setProperty('--rot', rnd(-200, 200) + 'deg');
-    } else if (cfg.kind === 'halo') {
-      const sz = p.s * rnd(.30, .46);
-      el.style.width = sz + 'px'; el.style.height = sz + 'px';
-      el.style.setProperty('--dx', rnd(-p.s * .12, p.s * .12) + 'px');
-      el.style.setProperty('--rise', rnd(p.s * .20, p.s * .38) + 'px');
-      el.style.setProperty('--rot', rnd(-30, 30) + 'deg');
     } else {
       el.style.setProperty('--sz', p.s * .13 + 'px');
       el.style.setProperty('--dx', rnd(p.s * .04, p.s * .16) + 'px');
