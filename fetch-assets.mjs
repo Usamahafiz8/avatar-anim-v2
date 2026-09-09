@@ -46,13 +46,20 @@ const AVATARS = [
 // (not just single frames) of the remaining untried Standing_Expressions
 // clips and found two that finally read as distinct: 006 (arms flare out,
 // fists clench — Angry) and 007 (leans forward, hand to face — Stressed).
+// A fourth pass gave the same filmstrip treatment to all 10 Talking_Variations
+// clips (never fully reviewed before) — masculine/feminine glb/expression
+// folders turned out byte-identical to what's already covered, but two of
+// the 10 talking clips had sustained motion: 004 (hands clasp at chest) and
+// 009 (arm raises, hailing) were left out as redundant with Stressed/Wave;
+// 010 (both arms out, open-palm shrug) is genuinely new — no reaction here
+// reads as "I don't know"/confused — so it's in as Confused.
 const CLIPS = [
   ['idle',       ['F_Standing_Idle_001']],
   ['dance',      ['F_Dances_001', 'F_Dances_005', 'F_Dances_007', 'M_Dances_008',
                   'M_Dances_004', 'M_Dances_006', 'M_Dances_007', 'M_Dances_009']],
   ['locomotion', ['F_Walk_002']],
   ['expression', ['M_Standing_Expressions_008', 'M_Standing_Expressions_006',
-                  'M_Standing_Expressions_007']],
+                  'M_Standing_Expressions_007', 'M_Talking_Variations_010']],
 ];
 
 const exists = async p => { try { await stat(p); return true; } catch { return false; } };

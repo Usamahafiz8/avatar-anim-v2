@@ -818,6 +818,12 @@ const CLIP_FILES = [
   // across all three passes shake or bounce in a laugh-like way.
   { label: 'Angry',      file: 'M_Standing_Expressions_006',  icon: '\u{1F620}' },
   { label: 'Stressed',   file: 'M_Standing_Expressions_007',  icon: '\u{1F62B}' },
+  // Fourth pass: same filmstrip treatment applied to all 10 Talking_Variations
+  // clips (a category never fully reviewed before). 004 (hands clasp at
+  // chest) and 009 (arm raises, hailing) had real motion but read as
+  // redundant with Stressed/Wave, left out. 010 (both arms out, open-palm
+  // shrug) is genuinely new — nothing else here reads as "I don't know."
+  { label: 'Confused',   file: 'M_Talking_Variations_010',    icon: '\u{1F937}' },
 ];
 
 // The player's equipped taunts. Limits PLAYER-SENT reactions only — game events
@@ -874,6 +880,7 @@ const FACES = {
   'Dance 5':       { smile: .60, open: .12, squint: 0   },
   'Angry':         { smile: 0,   open: .10, squint: .70 },
   'Stressed':      { smile: 0,   open: .05, squint: .40 },
+  'Confused':      { smile: .10, open: .06, squint: .20 },
 };
 
 const CLIP_MAP = {
