@@ -1,6 +1,9 @@
 {
   "buildCommand": "node fetch-assets.mjs",
   "outputDirectory": ".",
+  "rewrites": [
+    { "source": "/analyze-face", "destination": "/api/analyze-face" }
+  ],
   "headers": [
     {
       "source": "/models/(.*)",

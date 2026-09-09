@@ -9,6 +9,20 @@
 [build.environment]
   NODE_VERSION = "20"
 
+[functions]
+  directory = "netlify/functions"
+
+# Real AI vision analysis of selfie photos (see analyze-face-core.mjs) — needs
+# ANTHROPIC_API_KEY set in the Netlify site's environment variables. Without
+# it the function returns an error and index.html falls back to its local,
+# free, offline heuristic detection automatically; nothing breaks either way.
+# Client code calls the plain "/analyze-face" path so it works identically
+# across Netlify, Vercel, and local dev (see vercel.json / serve.mjs).
+[[redirects]]
+  from = "/analyze-face"
+  to = "/.netlify/functions/analyze-face"
+  status = 200
+
 # GLB is not in Netlify's default type map; without this the browser gets
 # application/octet-stream, which still loads but is worth setting correctly.
 [[headers]]
