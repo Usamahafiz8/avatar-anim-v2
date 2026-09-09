@@ -202,6 +202,21 @@
   #vfx { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
   .fx { position: absolute; will-change: transform, opacity; }
 
+  #speech { position: absolute; inset: 0; z-index: 3; pointer-events: none; overflow: hidden; }
+  .bubble {
+    position: absolute; transform: translate(-50%, -100%) scale(.85);
+    max-width: 150px; padding: 7px 11px;
+    background: #fff; color: #17241a;
+    border-radius: 14px; font: 600 var(--sz,13px)/1.25 'Inter', system-ui, sans-serif;
+    text-align: center; box-shadow: 0 3px 10px rgba(0,0,0,.35);
+    opacity: 0; transition: opacity .18s ease, transform .18s ease;
+  }
+  .bubble::after {
+    content: ''; position: absolute; left: 50%; bottom: -7px; transform: translateX(-50%);
+    border: 7px solid transparent; border-top-color: #fff; border-bottom: 0;
+  }
+  .bubble.show { opacity: 1; transform: translate(-50%, -100%) scale(1); }
+
   .fx-steam {
     border-radius: 50%;
     /* solid core with a tight falloff — a soft gradient washes out on green felt */
@@ -423,6 +438,7 @@
 
     <canvas id="gl"></canvas>
     <div id="vfx"></div>
+    <div id="speech"></div>
 
     <!-- in front, so the character stands ON the deck -->
     <button class="layer icon-btn" id="mic" aria-label="Mic">●</button>
@@ -1234,12 +1250,14 @@ function triggerAll(label) {
 
   avatars.forEach((av, i) => setTimeout(() => {
     clearTimeout(av.returnTimer);            // a new reaction cancels the pending return
+    clearInterval(av.speechTimer); av.speechTimer = null;
+    if (av.speechEl) { av.speechEl.remove(); av.speechEl = null; }
     playClip(av, name, FADE_IN, !isIdle);
     av.faceTarget = { ...(FACES[label] ?? FACES['Idle']) };
     av.alphaTarget = 1;                       // pop in for the reaction
     const hold = av.actions[name]?.getClip().duration ?? DEFAULT_HOLD;
     runEffect(av, label, hold);
-    if (name.includes('Talking_Variations')) playTalkBlips(hold);
+    if (name.includes('Talking_Variations')) { playTalkBlips(hold); runSpeech(av, label, hold); }
     if (isIdle) return;
     // start fading home before the clip ends, so it eases out rather than cutting
     const startFade = Math.max(0.1, hold - FADE_HOME);
@@ -1260,6 +1278,8 @@ function resetToIdle() {
   avatars.forEach(av => {
     clearTimeout(av.returnTimer);
     clearInterval(av.fxTimer); av.fxTimer = null;
+    clearInterval(av.speechTimer); av.speechTimer = null;
+    if (av.speechEl) { av.speechEl.remove(); av.speechEl = null; }
     playClip(av, rig.idle, FADE_HOME);
     av.faceTarget = { ...FACES['Idle'] };
     av.alphaTarget = IDLE_ALPHA;
@@ -1435,6 +1455,67 @@ function playTalkBlips(hold) {
     osc.start(t);
     osc.stop(t + blipMs / 1000 + .02);
   }
+}
+
+// ── speech bubbles ──────────────────────────────────────────────────────
+// The blips above make the avatar sound like it's talking; this is what
+// makes it read as talking TO the player — a short comic-style line above
+// the head, one per Talking_Variations-based reaction, so the gibberish
+// audio has actual words behind it instead of being pure noise.
+const TALK_LINES = {
+  'Talk 1':    'Nice hand!',
+  'Talk 2':    'Hit me!',
+  'Talk 3':    "Let's go!",
+  'Nervous':   'Uh... are you sure?',
+  'Talk 4':    'Come on, come on...',
+  'Talk 5':    'Nice one!',
+  'Talk 6':    'Watch this.',
+  'Talk 7':    'No way!',
+  'Hailing':   'Hey, over here!',
+  'Confused':  'Wait, what?',
+  'Talk 8':    'Ooh, nice!',
+  'Talk 9':    "Let's do this!",
+  'Ta-da':     'Ta-da!',
+  'Nervous 2': 'Umm... okay.',
+  'Talk 10':   'Really?',
+  'Amazed':    'Whoa!',
+};
+const speechLayer = $('speech');
+
+function runSpeech(a, label, hold) {
+  clearInterval(a.speechTimer); a.speechTimer = null;
+  if (a.speechEl) { a.speechEl.remove(); a.speechEl = null; }
+  const line = TALK_LINES[label];
+  if (!line || !SFX_ON) return;
+  const p0 = headScreen(a);
+  if (!p0) return;
+  const el = document.createElement('div');
+  el.className = 'bubble';
+  el.textContent = line;
+  speechLayer.appendChild(el);
+  a.speechEl = el;
+
+  const reposition = () => {
+    const p = headScreen(a);
+    if (!p) return;
+    el.style.left = p.x + 'px';
+    el.style.top  = (p.y - p.s * 1.4) + 'px';
+    el.style.setProperty('--sz', Math.max(11, p.s * .30) + 'px');
+  };
+  reposition();
+  requestAnimationFrame(() => el.classList.add('show'));
+
+  const life = Math.min(hold, 2.8);
+  const until = performance.now() + life * 1000;
+  a.speechTimer = setInterval(() => {
+    if (performance.now() > until) {
+      clearInterval(a.speechTimer); a.speechTimer = null;
+      el.classList.remove('show');
+      setTimeout(() => { el.remove(); if (a.speechEl === el) a.speechEl = null; }, 220);
+      return;
+    }
+    reposition();
+  }, 90);
 }
 
 function setMorph(a, key, value) {
